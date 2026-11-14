@@ -1,0 +1,345 @@
+build-test	UNKNOWN STEP	﻿2026-10-15T08:07:07.8241206Z Current runner version: '2.337.0'
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8276434Z ##[group]Runner Image Provisioner
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8278129Z Hosted Compute Agent
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8279099Z Version: 20261012.601
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8280208Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8281493Z Build Date: 2026-10-12T17:48:21Z
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8282658Z Worker ID: {78ec06d8-23df-475d-9ea9-8b22dd376ec4}
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8284158Z Region: eastus
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8285085Z Cloud: Azure
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8286047Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8288488Z ##[group]Operating System
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8289595Z Ubuntu
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8290441Z 24.04.5
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8291324Z LTS
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8292243Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8293155Z ##[group]Runner Image
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8294516Z Image: ubuntu-24.04
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8295516Z Version: 20261012.334.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8298092Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8300866Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8302599Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8304764Z ##[group]GITHUB_TOKEN Permissions
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8307666Z Contents: read
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8308668Z Metadata: read
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8309837Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8312724Z Secret source: Actions
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8314588Z Cache mode: write
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8316153Z Prepare workflow directory
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8781193Z Prepare all required actions
+build-test	UNKNOWN STEP	2026-10-15T08:07:07.8850583Z Getting action download info
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.0876013Z Download action repository 'actions/checkout@v5' (SHA:fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09)
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.1851218Z Download action repository 'actions/setup-go@v6' (SHA:924ae3a1cded613372ab5595356fb5720e22ba16)
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.4580206Z Complete job name: build-test
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5345835Z ##[group]Run actions/checkout@v5
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5346741Z with:
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5347217Z   repository: lawdachuss/node-3
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5350846Z   token: ***
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5351299Z   ssh-strict: true
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5351768Z   ssh-user: git
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5352238Z   persist-credentials: true
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5352760Z   clean: true
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5353239Z   sparse-checkout-cone-mode: true
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5353790Z   fetch-depth: 1
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5354717Z   fetch-tags: false
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5355199Z   show-progress: true
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5355678Z   lfs: false
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5356115Z   submodules: false
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5356587Z   set-safe-directory: true
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5357127Z   allow-unsafe-pr-checkout: false
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.5358004Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6367236Z Syncing repository: lawdachuss/node-3
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6369907Z ##[group]Getting Git version info
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6371068Z Working directory is '/home/runner/work/node-3/node-3'
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6372795Z [command]/usr/bin/git version
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6432228Z git version 2.55.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6453550Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6468517Z Temporarily overriding HOME='/home/runner/work/_temp/62817739-5619-4bf6-8296-9ee31e67e1fc' before making global git config changes
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6470912Z Adding repository directory to the temporary git global config as a safe directory
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6473558Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/node-3/node-3
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6525016Z Deleting the contents of '/home/runner/work/node-3/node-3'
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6533750Z ##[group]Initializing the repository
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6541711Z [command]/usr/bin/git init /home/runner/work/node-3/node-3
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6670134Z hint: Using 'master' as the name for the initial branch. This default branch name
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6671935Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6673471Z hint: to use in all of your new repositories, which will suppress this warning,
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6675437Z hint: call:
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6676078Z hint:
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6676869Z hint: 	git config --global init.defaultBranch <name>
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6677852Z hint:
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6678802Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6680406Z hint: 'development'. The just-created branch can be renamed via this command:
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6681607Z hint:
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6682282Z hint: 	git branch -m <name>
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6683043Z hint:
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6684249Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6690681Z Initialized empty Git repository in /home/runner/work/node-3/node-3/.git/
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6702840Z [command]/usr/bin/git remote add origin https://github.com/lawdachuss/node-3
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6754782Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6756246Z ##[group]Disabling automatic garbage collection
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6758733Z [command]/usr/bin/git config --local gc.auto 0
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6790979Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6792308Z ##[group]Setting up auth
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6798519Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.6831289Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.7196157Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.7234316Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.7468257Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.7504295Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.7729741Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.7770944Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.7772243Z ##[group]Fetching the repository
+build-test	UNKNOWN STEP	2026-10-15T08:07:08.7781039Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a0404abcda6eabcdcfc765e476cfba7b4a1e1b3c:refs/remotes/origin/main
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1552499Z From https://github.com/lawdachuss/node-3
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1553490Z  * [new ref]         a0404abcda6eabcdcfc765e476cfba7b4a1e1b3c -> origin/main
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1556991Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1557815Z ##[group]Determining the checkout info
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1559231Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1566011Z [command]/usr/bin/git sparse-checkout disable
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1618197Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1649969Z ##[group]Checking out the ref
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.1654598Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2000166Z Switched to a new branch 'main'
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2001412Z branch 'main' set up to track 'origin/main'.
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2003186Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2036553Z [command]/usr/bin/git log -1 --format=%H
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2065666Z a0404abcda6eabcdcfc765e476cfba7b4a1e1b3c
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2444498Z ##[group]Run actions/setup-go@v6
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2445182Z with:
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2445623Z   go-version: 1.26
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2446104Z   cache: true
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2446570Z   check-latest: false
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2451399Z   token: ***
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.2451869Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.3675691Z Setup go version spec 1.26
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.3987852Z Found in cache @ /opt/hostedtoolcache/go/1.26.9/x64
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.3989403Z Added go to the path
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.3992444Z Successfully set up Go version 1.26
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.9457416Z [command]/opt/hostedtoolcache/go/1.26.9/x64/bin/go env GOMODCACHE
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.9495273Z [command]/opt/hostedtoolcache/go/1.26.9/x64/bin/go env GOCACHE
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.9527802Z /home/runner/go/pkg/mod
+build-test	UNKNOWN STEP	2026-10-15T08:07:09.9556863Z /home/runner/.cache/go-build
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.0372312Z Cache is not found
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.0395641Z go version go1.26.9 linux/amd64
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.0395899Z 
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.0396358Z ##[group]go env
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4928701Z AR='ar'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4929062Z CC='gcc'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4929851Z CGO_CFLAGS='-O2 -g'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4930287Z CGO_CPPFLAGS=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4930680Z CGO_CXXFLAGS='-O2 -g'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4931100Z CGO_ENABLED='1'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4931476Z CGO_FFLAGS='-O2 -g'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4931915Z CGO_LDFLAGS='-O2 -g'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4932278Z CXX='g++'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4932621Z GCCGO='gccgo'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4933053Z GO111MODULE=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4933443Z GOAMD64='v1'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4933773Z GOARCH='amd64'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4934349Z GOAUTH='netrc'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4934718Z GOBIN=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4934966Z GOCACHE='/home/runner/.cache/go-build'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4935265Z GOCACHEPROG=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4935478Z GODEBUG=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4935751Z GOENV='/home/runner/.config/go/env'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4936030Z GOEXE=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4936247Z GOEXPERIMENT=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4936498Z GOFIPS140='off'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4936702Z GOFLAGS=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4937430Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build2486409429=/tmp/go-build -gno-record-gcc-switches'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4938149Z GOHOSTARCH='amd64'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4938377Z GOHOSTOS='linux'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4938612Z GOINSECURE=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4938893Z GOMOD='/home/runner/work/node-3/node-3/go.mod'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4939228Z GOMODCACHE='/home/runner/go/pkg/mod'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4939546Z GONOPROXY=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4939760Z GONOSUMDB=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4939989Z GOOS='linux'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4940206Z GOPATH='/home/runner/go'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4940444Z GOPRIVATE=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4940761Z GOPROXY='https://proxy.golang.org,direct'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4941130Z GOROOT='/opt/hostedtoolcache/go/1.26.9/x64'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4941442Z GOSUMDB='sum.golang.org'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4941708Z GOTELEMETRY='local'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4942043Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.4942365Z GOTMPDIR=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5019473Z GOTOOLCHAIN='local'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5020146Z GOTOOLDIR='/opt/hostedtoolcache/go/1.26.9/x64/pkg/tool/linux_amd64'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5020852Z GOVCS=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5021200Z GOVERSION='go1.26.9'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5021604Z GOWORK=''
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5022061Z PKG_CONFIG='pkg-config'
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5022339Z 
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5023340Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5087418Z ##[group]Run go build ./...
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5087756Z ^[[36;1mgo build ./...^[[0m
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5356001Z shell: /usr/bin/bash -e {0}
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5356353Z env:
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5356611Z   GOTOOLCHAIN: local
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.5356897Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:10.9879273Z go: downloading github.com/avast/retry-go/v4 v4.6.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:11.0495769Z go: downloading github.com/grafov/m3u8 v0.12.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:11.0924794Z go: downloading github.com/samber/lo v1.49.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:11.1325633Z go: downloading github.com/urfave/cli/v2 v2.27.6
+build-test	UNKNOWN STEP	2026-10-15T08:07:11.5602623Z go: downloading github.com/r3labs/sse/v2 v2.10.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:11.6256804Z go: downloading github.com/sardanioss/httpcloak v1.6.6
+build-test	UNKNOWN STEP	2026-10-15T08:07:11.9884319Z go: downloading github.com/fsnotify/fsnotify v1.10.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:12.0767821Z go: downloading github.com/gin-gonic/gin v1.10.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:12.1802702Z go: downloading golang.org/x/net v0.48.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:12.8800522Z go: downloading golang.org/x/text v0.32.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:12.9677216Z go: downloading github.com/cpuguy83/go-md2man/v2 v2.0.5
+build-test	UNKNOWN STEP	2026-10-15T08:07:12.9783425Z go: downloading github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.1585716Z go: downloading gopkg.in/cenkalti/backoff.v1 v1.1.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.2074448Z go: downloading github.com/sardanioss/utls v1.10.3
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.4257478Z go: downloading golang.org/x/sys v0.39.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.4344578Z go: downloading github.com/gin-contrib/sse v0.1.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.4415224Z go: downloading github.com/mattn/go-isatty v0.0.20
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.5289430Z go: downloading github.com/russross/blackfriday/v2 v2.1.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.6387779Z go: downloading github.com/andybalholm/brotli v1.2.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.6397584Z go: downloading github.com/klauspost/compress v1.18.2
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.6471807Z go: downloading github.com/sardanioss/http v1.2.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.6512189Z go: downloading github.com/sardanioss/quic-go v1.2.25
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.7400366Z go: downloading github.com/sardanioss/net v1.2.6
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.7879664Z go: downloading github.com/sardanioss/udpbara v1.1.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:13.8300457Z go: downloading golang.org/x/crypto v0.46.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.0546947Z go: downloading github.com/go-playground/validator/v10 v10.20.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.0547901Z go: downloading github.com/pelletier/go-toml/v2 v2.2.2
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.0957664Z go: downloading github.com/ugorji/go/codec v1.2.12
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.1014635Z go: downloading google.golang.org/protobuf v1.34.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.1164694Z go: downloading gopkg.in/yaml.v3 v3.0.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.1415036Z go: downloading github.com/miekg/dns v1.1.69
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.1464340Z go: downloading github.com/sardanioss/qpack v0.6.3
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.1998373Z go: downloading github.com/gabriel-vasile/mimetype v1.4.3
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.2118496Z go: downloading github.com/go-playground/universal-translator v0.18.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.2278023Z go: downloading github.com/leodido/go-urn v1.4.0
+build-test	UNKNOWN STEP	2026-10-15T08:07:14.3421851Z go: downloading github.com/go-playground/locales v0.14.1
+build-test	UNKNOWN STEP	2026-10-15T08:07:45.9203614Z ##[group]Run go vet ./...
+build-test	UNKNOWN STEP	2026-10-15T08:07:45.9204218Z ^[[36;1mgo vet ./...^[[0m
+build-test	UNKNOWN STEP	2026-10-15T08:07:45.9273465Z shell: /usr/bin/bash -e {0}
+build-test	UNKNOWN STEP	2026-10-15T08:07:45.9273728Z env:
+build-test	UNKNOWN STEP	2026-10-15T08:07:45.9274108Z   GOTOOLCHAIN: local
+build-test	UNKNOWN STEP	2026-10-15T08:07:45.9274340Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:52.0971879Z ##[group]Run go test ./...
+build-test	UNKNOWN STEP	2026-10-15T08:07:52.0972177Z ^[[36;1mgo test ./...^[[0m
+build-test	UNKNOWN STEP	2026-10-15T08:07:52.1035820Z shell: /usr/bin/bash -e {0}
+build-test	UNKNOWN STEP	2026-10-15T08:07:52.1036082Z env:
+build-test	UNKNOWN STEP	2026-10-15T08:07:52.1036282Z   GOTOOLCHAIN: local
+build-test	UNKNOWN STEP	2026-10-15T08:07:52.1036517Z ##[endgroup]
+build-test	UNKNOWN STEP	2026-10-15T08:07:59.6208647Z ?   	github.com/teacat/chaturbate-dvr	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0861641Z --- FAIL: TestTrackLateAssetStillMissingIsTheOnlyRealFailure (0.01s)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0866139Z     asset_late_test.go:172: an asset that never finishes is a real failure and must be reported once, got: []
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0867380Z 2026/10/15 08:07:59  INFO [alice] session merge: flushing held recording alice_2025-01-01_12-00-00.mp4 — no further merge will occur, uploading on its own
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0868947Z 2026/10/15 08:07:59  INFO [alice] output-dir: moving alice_2025-01-01_12-00-00.mp4 (/tmp/TestFlushHeldSessionMergeUploadsHeldFile2907518009/002/alice_2025-01-01_12-00-00.mp4) -> /tmp/TestFlushHeldSessionMergeUploadsHeldFile2907518009/001/alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0870526Z 2026/10/15 08:07:59  INFO [alice] output-dir: moved alice_2025-01-01_12-00-00.mp4 -> /tmp/TestFlushHeldSessionMergeUploadsHeldFile2907518009/001/alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0871505Z 2026/10/15 08:07:59  WARN [alice] pipeline: queue stopped, saving alice_2025-01-01_12-00-00.mp4 for recovery on next start
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0872437Z 2026/10/15 08:07:59 ERROR [bob] session merge bob_2025-01-01_12-00-00.mp4 + bob_2025-01-01_12-20-00.mp4 failed:  — uploading both separately
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0873777Z 2026/10/15 08:07:59 recovery [alice]: recovery: restored stranded merge input alice_2025-01-01_12-00-00.mp4.merged.mp4.consumed -> alice_2025-01-01_12-00-00.mp4.merged.mp4; uploading normally
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0875191Z 2026/10/15 08:07:59 recovery [bob]: recovery: removed consumed duplicate of published merge bob_2025-01-01_12-00-00.mp4.merged.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0876143Z 2026/10/15 08:07:59  INFO [alice] cleanup: queued alice_2026-08-14_10-00-00.mp4 for post-processing (ended: channel went offline, duration: 0:30:00, size: 4.00 KB)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0877262Z 2026/10/15 08:07:59  INFO [alice] cleanup: queued alice_2026-08-14_10-00-00.mp4 for post-processing (ended: stream session expired (no new segments), duration: 0:30:00, size: 4.00 KB)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0878404Z 2026/10/15 08:07:59  INFO [alice] cleanup: queued alice_2026-08-14_10-00-00.mp4 for post-processing (ended: max duration or filesize reached, duration: 0:30:00, size: 4.00 KB)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0879431Z 2026/10/15 08:07:59  INFO [alice] cleanup: queued alice_2026-08-14_10-00-00.mp4 for post-processing (ended: unknown, duration: 0:30:00, size: 4.00 KB)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0880152Z 2026/10/15 08:07:59 [cleanup] removed stale scratch file dead.finalizing.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0880847Z 2026/10/15 08:07:59 [min-duration] recovering finished merge scratch .merging-1723600000000000000-merged-alice_2026-08-14_04-16-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0881823Z 2026/10/15 08:07:59 [min-duration] removing stale merge scratch .merging-1723600000000000003-merged-alice_2026-08-12_04-16-00.mp4 (mod 2026-10-13T08:07:59Z)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0883005Z 2026/10/15 08:07:59 [min-duration] deleting stale pending segment /tmp/TestDeleteStalePendingSegments2681829329/001/alice_2026-08-11_09-00-00.mp4 (mod 2026-10-13T08:07:59Z, older than 24h0m0s)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0884687Z 2026/10/15 08:07:59  WARN [alice] pipeline: could not hash alice_2025-01-01_12-00-00.mp4 (state persistence limited): open: open /tmp/TestPipelineQueueRestartableAfterStop1453622155/001/alice_2025-01-01_12-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0885883Z 2026/10/15 08:07:59  INFO [alice] pipeline: processing alice_2025-01-01_12-00-00.mp4 (starting at stage thumbnail_upload)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0886575Z 2026/10/15 08:07:59  INFO [alice] pipeline: stage thumbnail_upload for alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0887786Z 2026/10/15 08:07:59 ERROR [alice] upload: file not found alice_2025-01-01_12-00-00.mp4: stat /tmp/TestPipelineQueueRestartableAfterStop1453622155/001/alice_2025-01-01_12-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0889569Z 2026/10/15 08:07:59 ERROR [alice] pipeline: upload stage failed for alice_2025-01-01_12-00-00.mp4: stat /tmp/TestPipelineQueueRestartableAfterStop1453622155/001/alice_2025-01-01_12-00-00.mp4: no such file or directory — keeping recording for retry
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0891098Z 2026/10/15 08:07:59 ERROR [alice] thumb: file not found alice_2025-01-01_12-00-00.mp4: stat /tmp/TestPipelineQueueRestartableAfterStop1453622155/001/alice_2025-01-01_12-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0892205Z 2026/10/15 08:07:59  WARN [alice] pipeline: could not save early metadata for alice_2025-01-01_12-00-00.mp4: Supabase not configured
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0893496Z 2026/10/15 08:07:59  WARN [alice] pipeline: could not hash alice_2025-01-02_13-00-00.mp4 (state persistence limited): open: open /tmp/TestPipelineQueueRestartableAfterStop1453622155/001/alice_2025-01-02_13-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0895054Z 2026/10/15 08:07:59  INFO [alice] pipeline: processing alice_2025-01-02_13-00-00.mp4 (starting at stage thumbnail_upload)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0895750Z 2026/10/15 08:07:59  INFO [alice] pipeline: stage thumbnail_upload for alice_2025-01-02_13-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0896768Z 2026/10/15 08:07:59 ERROR [alice] upload: file not found alice_2025-01-02_13-00-00.mp4: stat /tmp/TestPipelineQueueRestartableAfterStop1453622155/001/alice_2025-01-02_13-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0898616Z 2026/10/15 08:07:59 ERROR [alice] pipeline: upload stage failed for alice_2025-01-02_13-00-00.mp4: stat /tmp/TestPipelineQueueRestartableAfterStop1453622155/001/alice_2025-01-02_13-00-00.mp4: no such file or directory — keeping recording for retry
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0900168Z 2026/10/15 08:07:59 ERROR [alice] thumb: file not found alice_2025-01-02_13-00-00.mp4: stat /tmp/TestPipelineQueueRestartableAfterStop1453622155/001/alice_2025-01-02_13-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0901263Z 2026/10/15 08:07:59  WARN [alice] pipeline: could not save early metadata for alice_2025-01-02_13-00-00.mp4: Supabase not configured
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0902081Z 2026/10/15 08:07:59  WARN [alice] pipeline: could not save early metadata for alice_2025-01-01_12-00-00.mp4: Supabase not configured
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0903196Z 2026/10/15 08:07:59  WARN [alice] pipeline: alice_2025-01-02_13-00-00.mp4 already uploading — skipping duplicate (in-queue=false being-processed=false in-flight-markers=2)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0904385Z 2026/10/15 08:07:59  INFO [alice] pipeline: processing alice_2025-01-01_12-00-00.mp4 (starting at stage thumbnail_upload)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0905075Z 2026/10/15 08:07:59  INFO [alice] pipeline: stage thumbnail_upload for alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0905998Z 2026/10/15 08:07:59 ERROR [alice] pipeline: upload stage failed for alice_2025-01-01_12-00-00.mp4: server config not loaded — keeping recording for retry
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0906795Z 2026/10/15 08:07:59  WARN [alice] pipeline: alice_2025-01-01_12-00-00.mp4 will retry in 30s (retry 1/3)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0907412Z 2026/10/15 08:07:59 ERROR [alice] thumb: skipping alice_2025-01-01_12-00-00.mp4: too small (5 bytes)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0908092Z 2026/10/15 08:07:59  INFO [alice] pipeline: processing alice_2025-01-01_12-00-00.mp4 (starting at stage thumbnail_upload)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0908763Z 2026/10/15 08:07:59  INFO [alice] pipeline: stage thumbnail_upload for alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0909366Z 2026/10/15 08:07:59 ERROR [alice] thumb: skipping alice_2025-01-01_12-00-00.mp4: too small (5 bytes)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0910077Z 2026/10/15 08:07:59  WARN [alice] pipeline: could not save early metadata for alice_2025-01-01_12-00-00.mp4: Supabase not configured
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0911319Z 2026/10/15 08:07:59  WARN [alice] pipeline: alice_2025-01-01_12-00-00.mp4 already uploading — skipping duplicate (in-queue=false being-processed=true in-flight-markers=2)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0912348Z 2026/10/15 08:07:59  INFO [alice] upload: starting AnonMP4 upload for /tmp/TestPipelineQueueDedup1969166611/001/alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0913264Z 2026/10/15 08:07:59  INFO [alice] upload: starting GoFile upload for /tmp/TestPipelineQueueDedup1969166611/001/alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0914450Z 2026/10/15 08:07:59  INFO [alice] upload: starting Streamtape upload for /tmp/TestPipelineQueueDedup1969166611/001/alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0915817Z 2026/10/15 08:07:59 ERROR [alice] upload: AnonMP4 failed for /tmp/TestPipelineQueueDedup1969166611/001/alice_2025-01-01_12-00-00.mp4: anonmp4: stat file: stat /tmp/TestPipelineQueueDedup1969166611/001/alice_2025-01-01_12-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0917506Z 2026/10/15 08:07:59  WARN [alice] pipeline: could not hash alice_2025-01-01_12-00-00.mp4 (state persistence limited): open: open /tmp/TestPipelineFailureReleasesUploadWg493968819/001/alice_2025-01-01_12-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0918682Z 2026/10/15 08:07:59  INFO [alice] pipeline: processing alice_2025-01-01_12-00-00.mp4 (starting at stage thumbnail_upload)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0919368Z 2026/10/15 08:07:59  INFO [alice] pipeline: stage thumbnail_upload for alice_2025-01-01_12-00-00.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0920364Z 2026/10/15 08:07:59 ERROR [alice] upload: file not found alice_2025-01-01_12-00-00.mp4: stat /tmp/TestPipelineFailureReleasesUploadWg493968819/001/alice_2025-01-01_12-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0922221Z 2026/10/15 08:07:59 ERROR [alice] pipeline: upload stage failed for alice_2025-01-01_12-00-00.mp4: stat /tmp/TestPipelineFailureReleasesUploadWg493968819/001/alice_2025-01-01_12-00-00.mp4: no such file or directory — keeping recording for retry
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0923735Z 2026/10/15 08:07:59 ERROR [alice] thumb: file not found alice_2025-01-01_12-00-00.mp4: stat /tmp/TestPipelineFailureReleasesUploadWg493968819/001/alice_2025-01-01_12-00-00.mp4: no such file or directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0925047Z 2026/10/15 08:07:59  WARN [alice] pipeline: could not save early metadata for alice_2025-01-01_12-00-00.mp4: Supabase not configured
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0925780Z 2026/10/15 08:07:59  WARN [alice] pipeline: alice_2025-01-01_12-00-00.mp4 will retry in 30s (retry 1/3)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0926346Z 2026/10/15 08:07:59  INFO [tester] cleanup: removing local files for partial.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0926807Z 2026/10/15 08:07:59  INFO [tester] cleanup: removed partial.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0927485Z 2026/10/15 08:07:59  INFO [tester] cleanup: keeping nothumbs.mp4 — thumbnail missing (queued for thumbnail retry)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0928320Z 2026/10/15 08:07:59  INFO [tester] cleanup: keeping sprite-only.mp4 — thumbnail missing (queued for thumbnail retry)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0929179Z 2026/10/15 08:07:59  INFO [tester] cleanup: keeping preview-missing.mp4 — thumbnail missing (queued for thumbnail retry)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0929858Z 2026/10/15 08:07:59  INFO [tester] cleanup: keeping nolinks.mp4 because no upload links exist
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0930518Z 2026/10/15 08:07:59  INFO [tester] cleanup: delete after upload disabled — keeping disabled.mp4
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0931330Z 2026/10/15 08:07:59 [min-duration] quarantining corrupt pending segment seg1.mp4 (probe seg1.mp4: exec: "ffprobe": executable file not found in $PATH)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0932310Z 2026/10/15 08:07:59 [min-duration] quarantining corrupt pending segment seg2.mp4 (probe seg2.mp4: exec: "ffprobe": executable file not found in $PATH)
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0933453Z 2026/10/15 08:07:59 ERROR [alice] upload: Streamtape failed for /tmp/TestPipelineQueueDedup1969166611/001/alice_2025-01-01_12-00-00.mp4: get upload URL: API error 403: Authentication failed
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0934926Z 2026/10/15 08:07:59 ERROR [alice] upload: Streamtape rejected our credentials — disabling it for the rest of this run
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0936054Z 2026/10/15 08:08:05 delete: keeping sidecars for alice_2026-01-01_12-00-00.mp4 — thumb/sprite/preview upload still in flight
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0936931Z 2026/10/15 08:08:05 delete: keeping sidecars for alice_2026-01-01_12-00-00.mp4 — thumb/sprite/preview upload still in flight
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0937434Z FAIL
+build-test	UNKNOWN STEP	2026-10-15T08:08:05.0937707Z FAIL	github.com/teacat/chaturbate-dvr/channel	5.464s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4738639Z ok  	github.com/teacat/chaturbate-dvr/chaturbate	10.841s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4739623Z ?   	github.com/teacat/chaturbate-dvr/cmd/backfillmirrors	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4740735Z ?   	github.com/teacat/chaturbate-dvr/cmd/backfillrec2preview	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4741830Z ?   	github.com/teacat/chaturbate-dvr/cmd/backfillremotethumbs	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4742619Z ?   	github.com/teacat/chaturbate-dvr/cmd/backfillst	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4743243Z ?   	github.com/teacat/chaturbate-dvr/cmd/backfillthumbs	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4744129Z ?   	github.com/teacat/chaturbate-dvr/cmd/backfillvoe	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4744814Z ?   	github.com/teacat/chaturbate-dvr/cmd/checkthumbs	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4745421Z ?   	github.com/teacat/chaturbate-dvr/cmd/diagassign	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4746009Z ?   	github.com/teacat/chaturbate-dvr/cmd/genmanifest	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4746651Z ?   	github.com/teacat/chaturbate-dvr/cmd/pruneorphanpreviews	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4747313Z ?   	github.com/teacat/chaturbate-dvr/cmd/reconcilelinks	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4748158Z ?   	github.com/teacat/chaturbate-dvr/cmd/syncthumbs	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4748745Z ?   	github.com/teacat/chaturbate-dvr/cmd/uploadtest	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4749276Z ok  	github.com/teacat/chaturbate-dvr/config	0.156s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4749759Z ok  	github.com/teacat/chaturbate-dvr/coordinator	0.026s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4750243Z ok  	github.com/teacat/chaturbate-dvr/database	0.042s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4750698Z ok  	github.com/teacat/chaturbate-dvr/entity	0.002s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4751150Z ok  	github.com/teacat/chaturbate-dvr/internal	0.017s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4751597Z ok  	github.com/teacat/chaturbate-dvr/logs	0.023s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4752054Z ok  	github.com/teacat/chaturbate-dvr/manager	0.691s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4752566Z ?   	github.com/teacat/chaturbate-dvr/notifier	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4752981Z ok  	github.com/teacat/chaturbate-dvr/recovery	2.007s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4753358Z ok  	github.com/teacat/chaturbate-dvr/router	6.081s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4753733Z ok  	github.com/teacat/chaturbate-dvr/router/view	0.003s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4754372Z ok  	github.com/teacat/chaturbate-dvr/server	0.014s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4754715Z ok  	github.com/teacat/chaturbate-dvr/site	0.014s
+build-test	UNKNOWN STEP	2026-10-15T08:08:10.4755095Z ?   	github.com/teacat/chaturbate-dvr/stripchat	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:14.8615814Z ok  	github.com/teacat/chaturbate-dvr/uploader	10.033s
+build-test	UNKNOWN STEP	2026-10-15T08:08:14.8616602Z ?   	github.com/teacat/chaturbate-dvr/watcher	[no test files]
+build-test	UNKNOWN STEP	2026-10-15T08:08:14.8617159Z FAIL
+build-test	UNKNOWN STEP	2026-10-15T08:08:14.9054584Z ##[error]Process completed with exit code 1.
+build-test	UNKNOWN STEP	2026-10-15T08:08:14.9202840Z Post job cleanup.
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0075278Z [command]/usr/bin/git version
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0119313Z git version 2.55.0
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0157902Z Temporarily overriding HOME='/home/runner/work/_temp/b99bcc43-a907-44dd-9b80-3605ad467fe7' before making global git config changes
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0159214Z Adding repository directory to the temporary git global config as a safe directory
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0164469Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/node-3/node-3
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0204868Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0245388Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0494059Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0518882Z http.https://github.com/.extraheader
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0530682Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0571016Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0834702Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.0874181Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build-test	UNKNOWN STEP	2026-10-15T08:08:15.1273095Z Cleaning up orphan processes

@@ -1,0 +1,2145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/static/styles/app.css?v=5" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800;900&display=swap" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800;900&display=swap" /></noscript>
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+    <link rel="manifest" href="/static/site.webmanifest">
+    <title>Admin — StreamBate</title>
+    <script>
+        (function(){
+            if (localStorage.getItem('darkMode') === 'true' ||
+                (localStorage.getItem('darkMode') === null && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+    <style>
+        :root {
+            --bg-body: #0a0a0c;
+            --bg-surface: #121216;
+            --bg-card: #1a1a20;
+            --bg-input: rgba(255,255,255,0.04);
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #52525b;
+            --border-color: rgba(255,255,255,0.06);
+            --border-subtle: rgba(255,255,255,0.08);
+            --accent: #d4a053;
+            --accent-glow: rgba(212,160,83,0.3);
+        }
+        html:not(.dark) {
+            --bg-body: #f4f4f5;
+            --bg-surface: #ffffff;
+            --bg-card: #fafafa;
+            --bg-input: #f4f4f5;
+            --text-primary: #18181b;
+            --text-secondary: #52525b;
+            --text-muted: #a1a1aa;
+            --border-color: #e4e4e7;
+            --border-subtle: #d4d4d8;
+        }
+        body {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .admin-layout {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        /* ── Header ── */
+        .admin-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .admin-header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 22px;
+            margin: 0;
+        }
+        .admin-header .nav-links {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .admin-header .nav-links a {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+        .admin-header .nav-links a:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        /* ── Metrics Grid ── */
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .metric-card .label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .metric-card .value {
+            font-size: 24px;
+            font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+        }
+        .metric-card .sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* ── Collapsible Sections ── */
+        details.section {
+            margin-bottom: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        details.section summary {
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            padding: 14px 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+            list-style: none;
+            transition: background 0.15s;
+        }
+        details.section summary::-webkit-details-marker {
+            display: none;
+        }
+        details.section summary:hover {
+            background: var(--bg-input);
+        }
+        details.section summary .arrow {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+        details.section[open] summary .arrow {
+            transform: rotate(90deg);
+        }
+        details.section summary .count {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: var(--bg-input);
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        details.section summary .badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        details.section summary .badge.online { background: rgba(16,185,129,0.15); color: #10b981; }
+        details.section summary .badge.offline { background: rgba(113,113,122,0.12); color: #71717a; }
+        details.section summary .badge.draining { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        details.section summary .badge.uploading { background: rgba(59,130,246,0.15); color: #3b82f6; }
+
+        /* ── Upload Keys panel ── */
+        .uk-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 14px; flex-wrap: wrap; }
+        .uk-note { font-size: 11px; color: var(--text-muted); line-height: 1.5; max-width: 720px; }
+        .uk-host { margin-bottom: 18px; }
+        .uk-host-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .uk-probeable, .uk-passive { font-size: 10px; color: var(--text-muted); }
+        .uk-badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .uk-healthy { background: rgba(16,185,129,0.15); color: #10b981; }
+        .uk-dead { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .uk-quota { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .uk-unknown { background: rgba(59,130,246,0.15); color: #3b82f6; }
+        .uk-untested { background: rgba(113,113,122,0.12); color: #71717a; }
+        .uk-add { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+        .uk-input { flex: 1; min-width: 150px; font-size: 12px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: inherit; font-family: ui-monospace, monospace; }
+        .uk-msg { max-width: 340px; overflow-wrap: anywhere; color: var(--text-muted); }
+        details.section .section-body {
+            padding: 0 18px 18px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* ── Tables ── */
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table.admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        table.admin-table th {
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+        table.admin-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            vertical-align: middle;
+        }
+        table.admin-table tr:last-child td { border-bottom: none; }
+        table.admin-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .status-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .status-badge.active { background: rgba(16,185,129,0.15); color: #10b981; }
+        .status-badge.pending { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .status-badge.done { background: rgba(59,130,246,0.15); color: #3b82f6; }
+        .status-badge.failed { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .status-badge.orphan { background: rgba(168,85,247,0.15); color: #a855f7; }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.06);
+            overflow: hidden;
+            margin-top: 3px;
+        }
+        .progress-bar .fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s;
+        }
+        .progress-bar .fill.ok { background: var(--accent); }
+        .progress-bar .fill.good { background: #10b981; }
+        .progress-bar .fill.warn { background: #f59e0b; }
+
+        .host-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+        .host-tag {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            background: var(--bg-input);
+            color: var(--text-secondary);
+        }
+        .host-tag.ok { background: rgba(16,185,129,0.12); color: #10b981; }
+        .host-tag.fail { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+        .mono { font-family: ui-monospace, monospace; font-size: 11px; }
+        .truncate { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .empty-state {
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .btn-action {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            background: rgba(255,255,255,0.06);
+            color: var(--text-secondary);
+            transition: background 0.15s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.12); }
+        .btn-action-del:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .detail-item {
+            font-size: 11px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: var(--bg-input);
+        }
+        .detail-item .label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
+        .detail-item .val {
+            font-family: ui-monospace, monospace;
+            font-size: 12px;
+            margin-top: 1px;
+            word-break: break-all;
+        }
+
+        .filter-input {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 12px;
+            outline: none;
+            box-sizing: border-box;
+            margin-top: 10px;
+        }
+        .filter-input:focus { border-color: var(--accent); }
+
+        .disk-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-input);
+            overflow: hidden;
+            margin: 6px 0 2px;
+        }
+        .disk-bar .fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .upload-progress-inline {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .upload-progress-inline .mini-bar {
+            flex: 1;
+            max-width: 80px;
+            height: 3px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.06);
+            overflow: hidden;
+        }
+        .upload-progress-inline .mini-bar .fill {
+            height: 100%;
+            border-radius: 2px;
+            background: var(--accent);
+        }
+
+        .orphan-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .orphan-actions button {
+            font-size: 10px;
+            padding: 3px 10px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-retry { background: var(--accent); color: #fff; }
+        .btn-retry:hover { opacity: 0.85; }
+        .btn-delete { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .btn-delete:hover { background: rgba(239,68,68,0.25); }
+
+        /* Recording reconciliation */
+        .recon-verdict {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .recon-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .recon-verdict-text { font-weight: 800; letter-spacing: 0.05em; }
+        .recon-verdict-detail { color: var(--text-muted); }
+        .recon-healthy { background: rgba(16,185,129,0.12); }
+        .recon-healthy .recon-dot { background: #10b981; }
+        .recon-healthy .recon-verdict-text { color: #10b981; }
+        .recon-warning { background: rgba(245,158,11,0.12); }
+        .recon-warning .recon-dot { background: #f59e0b; }
+        .recon-warning .recon-verdict-text { color: #f59e0b; }
+        .recon-critical { background: rgba(239,68,68,0.12); }
+        .recon-critical .recon-dot { background: #ef4444; }
+        .recon-critical .recon-verdict-text { color: #ef4444; }
+        .recon-critical-text { color: #ef4444 !important; font-weight: 700; }
+        .recon-note {
+            margin-top: 12px;
+            font-size: 11px;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.03);
+            border-left: 2px solid rgba(255,255,255,0.12);
+            padding: 8px 10px;
+            border-radius: 0 6px 6px 0;
+            line-height: 1.5;
+        }
+
+        .edit-link {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 4px;
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+        .edit-link:hover {
+            background: rgba(255,255,255,0.1);
+            text-decoration: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        @keyframes refresh-glow {
+            0%, 100% { box-shadow: 0 0 4px rgba(59,130,246,0.3), 0 0 8px rgba(59,130,246,0.15); border-color: #3b82f6; }
+            50% { box-shadow: 0 0 8px rgba(59,130,246,0.6), 0 0 16px rgba(59,130,246,0.3); border-color: #60a5fa; }
+        }
+        @media (max-width: 768px) {
+            .admin-layout { padding: 12px 16px; }
+            .metrics { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+<div class="admin-layout">
+
+    <!-- ════════ HEADER ════════ -->
+    <div class="admin-header">
+        <h1>Admin Dashboard</h1>
+        <div class="nav-links">
+            {{ if .TunnelURL }}
+            <a href="{{ .TunnelURL }}" target="_blank" title="{{ .TunnelURL }}"
+               style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🔗 Tunnel</a>
+            {{ end }}
+            <a href="/">← Dashboard</a>
+            <a href="/videos">Videos</a>
+            <span style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px">
+                <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()"
+                       style="accent-color:var(--accent);margin:0;width:14px;height:14px">
+                <label for="auto-refresh" style="cursor:pointer">Auto</label>
+            </span>
+            <a href="javascript:void(0)" onclick="location.reload()">Refresh</a>
+            <a href="javascript:void(0)" onclick="stopAllChannels()"
+               style="background:rgba(239,68,68,0.12);color:#ef4444;border-color:rgba(239,68,68,0.2)">⏹ Stop All</a>
+            <a href="javascript:void(0)" onclick="toggleTheme()" id="theme-btn" style="font-size:14px">🌙</a>
+        </div>
+    </div>
+
+    <!-- ════════ METRICS ════════ -->
+    <div class="metrics">
+        <div class="metric-card">
+            <div class="label">Channels</div>
+            <div class="value">{{ len .Channels }}</div>
+            <div class="sub">{{ subOnline .Channels }} online</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Nodes</div>
+            <div class="value">{{ len .Nodes }}</div>
+            <div class="sub">{{ .OnlineNodes }} online · {{ .DrainingNodes }} draining</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Node Load</div>
+            <div class="value">{{ .TotalNodeLoad }}</div>
+            <div class="sub">channels assigned</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Mode</div>
+            <div class="value" style="font-size:18px">{{ .PoolMode }}</div>
+            <div class="sub" style="font-size:9px;word-break:break-all">{{ .MyNodeID }}</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Active Uploads</div>
+            <div class="value">{{ len .Uploads.Active }}</div>
+            <div class="sub">{{ len .Uploads.Pending }} pending</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Upload Queue</div>
+            <div class="value">{{ add (len .Uploads.Active) (len .Uploads.Pending) }}</div>
+            <div class="sub">{{ printf "%.1f" (divBytes .QueueBytes) }} MB upcoming</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Videos On Disk</div>
+            <div class="value">{{ if .Recon }}{{ .Recon.LocalFiles }}{{ else }}0{{ end }}</div>
+            <div class="sub">{{ if .Recon }}{{ .Recon.LocalBytesHuman }}{{ else }}n/a{{ end }}</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Pipeline History</div>
+            <div class="value">{{ len .Uploads.History }}</div>
+            <div class="sub">{{ subFailed .Uploads.History }} failed</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Disk</div>
+            <div class="value">{{ .Disk.Used }}</div>
+            <div class="sub">{{ .Disk.Free }} free of {{ .Disk.Total }}</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Session</div>
+            <div class="value" style="font-size:18px">
+                {{ if .SessionActive }}
+                <span class="status-badge pending" style="font-size:11px">Active</span>
+                {{ else if .SessionProcessing }}
+                <span class="status-badge pending" style="font-size:11px;background:rgba(245,158,11,0.15);color:#f59e0b;border-color:rgba(245,158,11,0.35)">Processing</span>
+                {{ else }}
+                <span class="status-badge" style="font-size:11px;background:rgba(113,113,122,0.12);color:#71717a">Inactive</span>
+                {{ end }}
+            </div>
+            <div class="sub">
+                {{ if .SessionActive }}
+                {{ .SessionRemaining }} left · {{ .SessionDuration }} total
+                {{ else if .SessionProcessing }}
+                Finalizing &amp; uploading recordings…
+                {{ else }}
+                No active session
+                {{ end }}
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════ CHANNELS ════════ -->
+    <details class="section" open>
+        <summary><span class="arrow">▶</span> Channels <span class="count">{{ len .Channels }}</span></summary>
+        <div class="section-body">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Channel</th>
+                        <th>Site</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                        <th>Filesize</th>
+                        <th>Upload</th>
+                        <th>Queued</th>
+                        <th>Failed</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if .Channels }}
+                    {{ range $ch := .Channels }}
+                    {{ $pc := index $.PipelineMap $ch.Username }}
+                    <tr>
+                        <td><strong>{{ $ch.Username }}</strong></td>
+                        <td>{{ $ch.Site }}</td>
+                        <td>
+                            {{ if and $ch.IsOnline (not $ch.IsPaused) }}
+                                <span class="status-badge active">Recording</span>
+                            {{ else if $ch.IsPaused }}
+                                <span class="status-badge pending">Paused</span>
+                            {{ else if $ch.IsConnecting }}
+                                <span class="status-badge pending">Connecting</span>
+                            {{ else }}
+                                <span class="status-badge" style="background:rgba(113,113,122,0.12);color:#71717a">Offline</span>
+                            {{ end }}
+                        </td>
+                        <td class="mono">{{ $ch.Duration }}</td>
+                        <td class="mono">{{ $ch.Filesize }}</td>
+                        <td style="min-width:140px">
+                            {{ if $ch.UploadStatus }}
+                            <div class="upload-progress-inline">
+                                <span class="status-badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;font-size:9px">{{ $ch.UploadStatus }}</span>
+                                <div class="mini-bar"><div class="fill" style="width:{{ printf "%.0f" $ch.UploadProgress }}%"></div></div>
+                                <span style="font-size:10px;color:var(--text-muted)">{{ printf "%.0f" $ch.UploadProgress }}%</span>
+                            </div>
+                            {{ if $ch.UploadFilename }}
+                            <div style="font-size:9px;color:var(--text-muted);margin-top:2px" class="mono truncate" title="{{ $ch.UploadFilename }}">{{ $ch.UploadFilename }}</div>
+                            {{ end }}
+                            {{ else }}
+                            <span style="color:var(--text-muted);font-size:10px">—</span>
+                            {{ end }}
+                        </td>
+                        <td class="mono">{{ $pc.Queued }}</td>
+                        <td class="mono">{{ $pc.Failed }}</td>
+                        <td>
+                            {{ if $ch.IsPaused }}
+                            <button class="btn-action" onclick="channelAction('resume','{{ $ch.Username }}')" title="Resume">▶</button>
+                            {{ else }}
+                            <button class="btn-action" onclick="channelAction('pause','{{ $ch.Username }}')" title="Pause">⏸</button>
+                            {{ end }}
+                            <button class="btn-action btn-action-del" onclick="channelAction('stop','{{ $ch.Username }}')" title="Delete">✕</button>
+                        </td>
+                    </tr>
+                    {{ end }}
+                    {{ else }}
+                    <tr><td colspan="9" class="empty-state">No channels configured</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <!-- ════════ ACTIVE UPLOADS ════════ -->
+    <details class="section" open>
+        <summary>
+            <span class="arrow">▶</span>
+            Active Uploads <span class="count">{{ len .Uploads.Active }}</span>
+            {{ if gt (len .Uploads.Active) 0 }}
+            <span class="badge uploading" id="uploads-summary" style="{{ if not .Uploads.Active }}display:none{{ end }}">{{ len .Uploads.Active }} uploading</span>
+            {{ end }}
+        </summary>
+        <div class="section-body">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Channel</th>
+                        <th>File</th>
+                        <th>Status</th>
+                        <th>Progress</th>
+                        <th>Hosts</th>
+                        <th>Bytes</th>
+                        <th>Speed</th>
+                    </tr>
+                </thead>
+                <tbody id="uploads-table-body">
+                    {{ if .Uploads.Active }}
+                    {{ range .Uploads.Active }}
+                    <tr>
+                        <td><strong>{{ .Channel }}</strong></td>
+                        <td class="mono truncate" title="{{ .Filename }}">{{ .Filename }}</td>
+                        <td><span class="status-badge active">{{ .Status }}</span></td>
+                        <td style="min-width:140px">
+                            {{ printf "%.0f" .Progress }}%
+                            <div class="progress-bar"><div class="fill ok" style="width:{{ .Progress }}%"></div></div>
+                        </td>
+                        <td>
+                            <div class="host-list">
+                                <span class="host-tag">{{ .HostCount }}/{{ .HostTotal }} done</span>
+                                {{ range .Hosts }}
+                                <span class="host-tag {{ if eq .Status "done" }}ok{{ else if eq .Status "failed" }}fail{{ end }}"
+                                      title="{{ .Host }}: {{ printf "%.0f" .Progress }}%{{ if .Speed }} @ {{ .Speed }}{{ end }}">
+                                    {{ .Host }}
+                                </span>
+                                {{ end }}
+                            </div>
+                        </td>
+                        <td class="mono">{{ if gt .BytesTotal 0 }}{{ .BytesCurrent }}/{{ .BytesTotal }}{{ else }}—{{ end }}</td>
+                        <td class="mono">{{ if .Speed }}{{ .Speed }}{{ else }}—{{ end }}</td>
+                    </tr>
+                    {{ end }}
+                    {{ else }}
+                    <tr><td colspan="7" class="empty-state">No active uploads</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <!-- ════════ PIPELINE UI STYLES ════════ -->
+    <style>
+        .pipeline-expand-btn {
+            background: none; border: none; cursor: pointer;
+            font-size: 11px; color: var(--text-muted, #52525b);
+            padding: 2px 4px; border-radius: 3px;
+            transition: color 0.15s, background 0.15s;
+            font-family: monospace;
+        }
+        .pipeline-expand-btn:hover { color: var(--text-primary, #e4e4e7); background: var(--bg-hover, rgba(255,255,255,0.06)); }
+        .pipeline-expand-btn.open { transform: rotate(90deg); }
+        .pipeline-detail-row td { padding: 0 !important; border: none !important; }
+        .pipeline-detail-cell {
+            padding: 0 12px 8px 36px !important;
+            border-bottom: 1px solid var(--border-color, #27272a) !important;
+        }
+        .pipeline-detail-content {
+            display: flex; align-items: flex-start; gap: 8px;
+            font-size: 11px; padding: 6px 10px; border-radius: 6px;
+            background: var(--bg-hover, rgba(255,255,255,0.04));
+            border: 1px solid var(--border-color, #27272a);
+        }
+        .pipeline-detail-label {
+            font-weight: 600; color: var(--text-muted, #52525b);
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .pipeline-detail-error {
+            color: #ef4444; word-break: break-all;
+        }
+        .pipeline-row.new-entry {
+            animation: pipeline-flash 1.2s ease-out;
+        }
+        @keyframes pipeline-flash {
+            0% { background: rgba(59,130,246,0.15); }
+            100% { background: transparent; }
+        }
+        .pipeline-row.removed-entry {
+            animation: pipeline-fade 0.5s ease-out forwards;
+        }
+        @keyframes pipeline-fade {
+            0% { opacity: 1; }
+            100% { opacity: 0; background: rgba(239,68,68,0.08); }
+        }
+    </style>
+
+    <!-- ════════ LIVE UPLOAD MATRIX ════════ -->
+    <style>
+        .upload-matrix { margin-top: 8px; max-height: 62vh; overflow-y: auto; }
+        .matrix-section { border: 1px solid var(--border-color, #27272a); border-radius: 8px; margin-bottom: 10px; background: var(--bg-card, #0a0a0e); }
+        .matrix-section-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border-color, #27272a); position: sticky; top: 0; background: var(--bg-card, #0a0a0e); z-index: 1; }
+        .matrix-section-title { font-weight: 700; font-size: 13px; color: var(--text-primary, #e4e4e7); }
+        .matrix-section-count { font-size: 10px; color: var(--text-muted, #52525b); }
+        .matrix-section-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 10px; }
+        .host-card { border: 1px solid var(--border-color, #27272a); border-radius: 8px; padding: 10px; background: var(--bg-card, #0a0a0e); }
+        .host-card.ok { border-color: rgba(16,185,129,0.5); }
+        .host-card.fail { border-color: rgba(239,68,68,0.5); }
+        .host-card.pending { opacity: 0.55; }
+        .host-card.active { border-color: rgba(59,130,246,0.5); }
+        .host-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .host-name { font-weight: 600; font-size: 13px; color: var(--text-primary, #e4e4e7); }
+        .host-status { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #52525b); }
+        .host-card.ok .host-status { color: #10b981; }
+        .host-card.fail .host-status { color: #ef4444; }
+        .host-card.active .host-status { color: #3b82f6; }
+        .host-card-file { font-size: 10px; color: var(--text-muted, #52525b); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .host-card-meta { display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px; color: var(--text-muted, #52525b); }
+        .host-card-bytes { font-size: 10px; color: var(--text-muted, #52525b); margin-top: 2px; }
+        .host-card .progress-bar { height: 6px; }
+        .host-card .progress-bar .fill { background: #3b82f6; transition: width 0.4s; }
+        .host-card .progress-bar .fill.ok { background: #10b981; }
+        .host-card .progress-bar .fill.fail { background: #ef4444; }
+        .host-card .progress-bar .fill.pending { background: #52525b; }
+    </style>
+    <details class="section" open>
+        <summary>
+            <span class="arrow">▶</span>
+            Live Upload Matrix
+            <span class="badge uploading" id="matrix-summary" style="display:none">0 hosts active</span>
+        </summary>
+        <div class="section-body">
+            <div id="upload-matrix-body" class="upload-matrix">
+                <div class="empty-state">No active uploads</div>
+            </div>
+        </div>
+    </details>
+
+    <!-- ════════ NODES ════════ -->
+    <details class="section" open>
+        <summary>
+            <span class="arrow">▶</span>
+            Nodes <span class="count">{{ len .Nodes }}</span>
+            {{ if gt .OnlineNodes 0 }}
+            <span class="badge online">{{ .OnlineNodes }} online</span>
+            {{ end }}
+            {{ if gt .DrainingNodes 0 }}
+            <span class="badge draining">{{ .DrainingNodes }} draining</span>
+            {{ end }}
+            <a href="/nodes" class="edit-link">View All</a>
+        </summary>
+        <div class="section-body">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Node</th>
+                        <th>Hostname</th>
+                        <th>Status</th>
+                        <th>Load</th>
+                        <th>Version</th>
+                        <th>Label</th>
+                        <th>Heartbeat</th>
+                        <th>Web UI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if .Nodes }}
+                    {{ range .Nodes }}
+                    <tr>
+                        <td>
+                            {{ if .WebURL }}
+                            <a href="{{ .WebURL }}" target="_blank" rel="noopener" class="mono" style="font-weight:700;color:var(--text);text-decoration:none" title="Open {{ .NodeID }} web UI">🔗 {{ .NodeID }}</a>
+                            {{ else }}
+                            <strong class="mono">{{ .NodeID }}</strong>
+                            {{ end }}
+                        </td>
+                        <td>{{ .Hostname }}</td>
+                        <td>
+                            {{ if eq .Status "online" }}
+                                <span class="status-badge active">Online</span>
+                            {{ else if eq .Status "draining" }}
+                                <span class="status-badge pending">Draining</span>
+                            {{ else }}
+                                <span class="status-badge" style="background:rgba(113,113,122,0.12);color:#71717a">Offline</span>
+                            {{ end }}
+                        </td>						<td class="mono">
+							{{ if eq .Status "offline" }}<span style="color:var(--text-muted)">—</span>{{ else }}{{ .CurrentLoad }}{{ end }}
+						</td>
+						<td class="mono">{{ .SoftwareVersion }}</td>
+                        <td>{{ .InstanceLabel }}</td>
+                        <td class="mono" style="font-size:10px">{{ .LastHeartbeat }}</td>
+                        <td>
+                            {{ if .WebURL }}
+                            <a href="{{ .WebURL }}" target="_blank" rel="noopener" class="btn-action" title="Open {{ .NodeID }} web UI">🔗 Visit</a>
+                            {{ else }}
+                            <span style="color:var(--text-muted);font-size:10px">—</span>
+                            {{ end }}
+                        </td>
+                    </tr>
+                    {{ end }}
+                    {{ else }}
+                    <tr><td colspan="8" class="empty-state">No nodes registered</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <!-- ════════ UPLOAD KEYS ════════ -->
+    <details class="section" open>
+        <summary>
+            <span class="arrow">▶</span>
+            Upload Keys <span class="count" id="uk-total">{{ .UploadKeyTotal }}</span>
+            <span class="badge online">live health</span>
+        </summary>
+        <div class="section-body">
+            <div class="uk-toolbar">
+                <span class="uk-note">Keys are stored centrally in Supabase — adding a key here REPLACES that host's previous keys on every node (applied within ~20 min, no restart), and a key the host rejects (<strong>dead</strong>) is deleted automatically within the same window. Statuses refresh live: each key is auto-checked about every 2h, and a key is flagged the moment an upload rotates away from it.</span>
+                <button type="button" class="btn-action" data-act="probe-all">Check all now</button>
+            </div>
+            <div id="uk-hosts">
+                {{ range .UploadKeys }}
+                <div class="uk-host" data-host="{{ .Host }}">
+                    <div class="uk-host-head">
+                        <strong>{{ .Label }}</strong>
+                        {{ if .Probeable }}<span class="uk-probeable">auto-checked</span>{{ else }}<span class="uk-passive">no check API — judged from live uploads; first listed account is used</span>{{ end }}
+                    </div>
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Status</th>
+                                <th>Last Checked</th>
+                                <th>Detail</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody class="uk-tbody">
+                            {{ range .Keys }}
+                            <tr data-fp="{{ .Fingerprint }}">
+                                <td class="mono">{{ .Display }}</td>
+                                <td><span class="uk-badge uk-{{ .Status }}">{{ .Status }}</span></td>
+                                <td class="mono" style="font-size:10px">{{ timefmt .LastChecked }}</td>
+                                <td class="uk-msg">{{ .Message }}</td>
+                                <td style="white-space:nowrap">
+                                    <button type="button" class="btn-action" data-act="edit" title="Edit this key in place — the host's other keys are preserved">Edit</button>
+                                    <button type="button" class="btn-action" data-act="probe">Test</button>
+                                    <button type="button" class="btn-action btn-action-del" data-act="remove">✕</button>
+                                </td>
+                            </tr>
+                            {{ else }}
+                            <tr><td colspan="5" class="empty-state">No keys configured</td></tr>
+                            {{ end }}
+                        </tbody>
+                    </table>
+                    <div class="uk-add">
+                        {{ range .Fields }}{{ if eq . "key" }}<input type="password" data-field="key" class="uk-input" placeholder="API key" />{{ end }}{{ if eq . "login" }}<input type="text" data-field="login" class="uk-input" placeholder="Login" />{{ end }}{{ if eq . "email" }}<input type="text" data-field="email" class="uk-input" placeholder="Email" />{{ end }}{{ if eq . "token" }}<input type="password" data-field="token" class="uk-input" placeholder="Token" />{{ end }}{{ end }}
+                        <button type="button" class="btn-action" data-act="add" title="Replaces this host's current keys on every node">＋ Add</button>
+                    </div>
+                </div>
+                {{ end }}
+            </div>
+            <div class="uk-note"><strong>dead</strong> = the host explicitly rejected the key — it is removed from the whole fleet automatically within ~20 min of the verdict (add a replacement key and the old ones are swapped out in one step). <strong>quota</strong> = valid key, account capped for now (recovers on its own, never auto-deleted). <strong>unknown</strong> = the check could not reach a verdict (host down / block page) — the key was NOT written off.</div>
+        </div>
+    </details>
+
+    <!-- ════════ UPLOAD HOST BACKOFFS ════════ -->
+    {{ if .HostBackoffs }}
+    <details class="section" open>
+        <summary>
+            <span class="arrow">▶</span>
+            Upload Host Backoffs <span class="count">{{ len .HostBackoffs }}</span>
+            <span class="badge draining">skipped fleet-wide</span>
+        </summary>
+        <div class="section-body">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Host</th>
+                        <th>Resumes</th>
+                        <th>In</th>
+                        <th>Reason</th>
+                        <th>Reported By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .HostBackoffs }}
+                    <tr>
+                        <td><strong class="mono">{{ .Host }}</strong></td>
+                        <td class="mono" style="font-size:10px">{{ .Until }}</td>
+                        <td class="mono">{{ .Remaining }}</td>
+                        <td style="font-size:11px">{{ .Reason }}</td>
+                        <td class="mono" style="font-size:10px">{{ .ReportedBy }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+            <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">
+                Upload credentials are shared by every node, so a host capped for one is capped for all.
+                These hosts are skipped fleet-wide until the times above — the entry expires on its own.
+            </div>
+        </div>
+    </details>
+    {{ end }}
+
+    <!-- ════════ POOL ASSIGNMENTS ════════ -->
+    <details class="section">
+        <summary>
+            <span class="arrow">▶</span>
+            Pool <span class="count">{{ len .Assignments }}</span>
+            <a href="/pool" class="edit-link">✎ Edit</a>
+        </summary>
+        <div class="section-body">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Channel</th>
+                        <th>Site</th>
+                        <th>Node</th>
+                        <th>Status</th>
+                        <th>Live</th>
+                        <th>Quality</th>
+                        <th>Max Dur</th>
+                        <th>Assigned</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if .Assignments }}
+                    {{ range .Assignments }}
+                    <tr>
+                        <td><strong>{{ .Username }}</strong></td>
+                        <td>{{ .Site }}</td>
+                        <td class="mono">
+                            {{ if .AssignedNode }}
+                            <span title="Node: {{ .AssignedNode }}">{{ .AssignedNode }}</span>
+                            {{ else }}
+                            <span style="color:var(--text-muted)">—</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            {{ if eq .Status "claimed" }}
+                                <span class="status-badge active">Claimed</span>
+                            {{ else if eq .Status "unassigned" }}
+                                <span class="status-badge pending">Unassigned</span>
+                            {{ else }}
+                                <span class="status-badge">{{ .Status }}</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            {{ if .IsLive }}
+                                <span class="status-badge active" style="background:rgba(16,185,129,0.12);color:#10b981">Live</span>
+                            {{ else }}
+                                <span class="status-badge" style="background:rgba(113,113,122,0.12);color:#71717a">Offline</span>
+                            {{ end }}
+                        </td>
+                        <td class="mono">{{ .Resolution }}p / {{ .Framerate }}fps</td>
+                        <td class="mono">{{ if gt .MaxDuration 0 }}{{ .MaxDuration }}m{{ else }}<span style="color:var(--text-muted)">∞</span>{{ end }}</td>
+                        <td class="mono" style="font-size:10px">{{ .AssignedAt }}</td>
+                    </tr>
+                    {{ end }}
+                    {{ else }}
+                    <tr><td colspan="7" class="empty-state">No channels in pool</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <!-- ════════ PROXY STATUS ════════ -->
+    {{ if .ProxyStatus }}
+    <details class="section" id="proxy-section-details">
+        <summary>
+            <span class="arrow">▶</span>
+            Proxy Pool <span class="count" id="proxy-pool-count" onclick="discoverProxies()" style="cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='rgba(212,160,83,0.15)'" onmouseout="this.style.background=''" title="Click to re-discover proxies">{{ .ProxyStatus.PoolSize }}</span>
+            <span id="proxy-summary-badges">
+            {{ if .ProxyStatus.CookiesOK }}
+            <span class="badge online" style="background:rgba(16,185,129,0.12);color:#10b981;font-size:10px">Cookies OK</span>
+            {{ else }}
+            <span class="badge" style="background:rgba(239,68,68,0.12);color:#ef4444;font-size:10px">No Cookies</span>
+            {{ end }}
+            {{ if .ProxyStatus.Refreshing }}
+            <span class="badge pending" style="font-size:10px">Refreshing</span>
+            {{ end }}
+            {{ if .ProxyStatus.Prewarming }}
+            <span class="badge uploading" style="font-size:10px">Pre-warming</span>
+            {{ end }}
+            {{ if gt .ProxyStatus.DeadCount 0 }}
+            <span class="badge" style="background:rgba(239,68,68,0.12);color:#ef4444;font-size:10px">{{ .ProxyStatus.DeadCount }} dead</span>
+            {{ end }}
+            </span>
+            <a href="javascript:void(0)" onclick="discoverProxies()" id="discover-proxies-btn"
+               style="margin-left:auto;font-size:10px;font-weight:600;padding:3px 10px;border-radius:5px;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-secondary);cursor:pointer;transition:all 0.15s;text-decoration:none;white-space:nowrap"
+               onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'"
+               onmouseout="this.style.background='var(--bg-input)';this.style.color='var(--text-secondary)'">⟳ Discover</a>
+        </summary>
+        <div class="section-body">
+            {{ if gt .ProxyStatus.PoolSize 0 }}
+            <div id="proxy-cards-container" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+                {{ range .ProxyStatus.Proxies }}
+                <div style="
+                    background:var(--bg-card);
+                    border:1px solid {{ if .Current }}var(--accent){{ else }}var(--border-color){{ end }};
+                    border-radius:10px;
+                    padding:12px 14px;
+                    min-width:200px;
+                    flex:1;
+                    max-width:280px;
+                    {{ if .Current }}box-shadow:0 0 0 1px var(--accent-glow){{ end }}
+                ">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <span class="proxy-url" style="font-family:ui-monospace,monospace;font-size:11px;font-weight:600;color:var(--text-primary)" title="{{ .Proxy }}">{{ .Proxy }}</span>
+                        <span class="proxy-role" data-current="{{ .Current }}">
+                        {{ if .Current }}
+                        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:4px;background:rgba(212,160,83,0.12);color:var(--accent)">Active</span>
+                        {{ else }}
+                        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:4px;background:var(--bg-input);color:var(--text-muted)">Standby</span>
+                        {{ end }}
+                        </span>
+                    </div>
+                    <div class="proxy-status-tags" style="display:flex;flex-wrap:wrap;gap:4px">
+                        {{ if .Cookies }}
+                        <span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.12);color:#10b981" title="Cached cookies, age: {{ .CookiesAge }}">🍪 {{ .CookiesAge }}</span>
+                        {{ else }}
+                        <span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(239,68,68,0.12);color:#ef4444">🍪 None</span>
+                        {{ end }}
+                        {{ if .Dead }}
+                        <span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(239,68,68,0.12);color:#ef4444" title="Cooldown until {{ .DeadUntil }}">✕ Dead</span>
+                        {{ else }}
+                        <span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.12);color:#10b981">✓ Alive</span>
+                        {{ end }}
+                        {{ if .PreWarmed }}
+                        <span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.12);color:#3b82f6">⟳ Pre-warmed</span>
+                        {{ end }}
+                    </div>
+                </div>
+                {{ end }}
+            </div>
+            {{ else }}
+            <div class="empty-state" id="proxy-cards-container">No proxies configured or discovered</div>
+            {{ end }}
+        </div>
+    </details>
+    {{ end }}
+
+    <!-- ════════ PIPELINE QUEUE ════════ -->
+    <details class="section" open>
+        <summary><span class="arrow">▶</span> Pipeline Queue <span class="count" id="pipeline-queue-count">{{ len .Uploads.Pending }}</span></summary>
+        <div class="section-body">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th style="width:28px"></th>
+                        <th>Channel</th>
+                        <th>File</th>
+                        <th>Stage</th>
+                        <th>Size</th>
+                        <th>Failed</th>
+                    </tr>
+                </thead>
+                <tbody id="pipeline-queue-body">
+                    {{ if .Uploads.Pending }}
+                    {{ range $i, $p := .Uploads.Pending }}
+                    <tr class="pipeline-row" data-idx="{{ $i }}">
+                        <td><button class="pipeline-expand-btn" onclick="togglePipelineDetail(this)" title="Toggle details">▸</button></td>
+                        <td><strong>{{ $p.Channel }}</strong></td>
+                        <td class="mono truncate" title="{{ $p.Filename }}">{{ $p.Filename }}</td>
+                        <td><span class="status-badge pending">{{ $p.Stage }}</span></td>
+                        <td class="mono">{{ if $p.Size }}{{ printf "%.1f" (divBytes $p.Size) }} MB{{ else }}—{{ end }}</td>
+                        <td>{{ if $p.Failed }}<span class="status-badge failed">Yes</span>{{ else }}<span class="status-badge done">No</span>{{ end }}</td>
+                    </tr>
+                    {{ if or $p.Error }}
+                    <tr class="pipeline-detail-row" style="display:none">
+                        <td colspan="6" class="pipeline-detail-cell">
+                            <div class="pipeline-detail-content">
+                                <span class="pipeline-detail-label">Error:</span>
+                                <span class="pipeline-detail-error mono">{{ $p.Error }}</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {{ end }}
+                    {{ end }}
+                    {{ else }}
+                    <tr><td colspan="6" class="empty-state">No pending pipelines</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <!-- ════════ PIPELINE HISTORY ════════ -->
+    <details class="section" open>
+        <summary><span class="arrow">▶</span> Pipeline History <span class="count" id="pipeline-history-count">{{ len .Uploads.History }}</span></summary>
+        <div class="section-body">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th style="width:28px"></th>
+                        <th>Channel</th>
+                        <th>File</th>
+                        <th>Stage</th>
+                        <th>Size</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody id="pipeline-history-body">
+                    {{ if .Uploads.History }}
+                    {{ range $i, $p := .Uploads.History }}
+                    <tr class="pipeline-row" data-idx="{{ $i }}">
+                        <td><button class="pipeline-expand-btn" onclick="togglePipelineDetail(this)" title="Toggle details">▸</button></td>
+                        <td><strong>{{ $p.Channel }}</strong></td>
+                        <td class="mono truncate" title="{{ $p.Filename }}">{{ $p.Filename }}</td>
+                        <td><span class="status-badge done">{{ $p.Stage }}</span></td>
+                        <td class="mono">{{ if $p.Size }}{{ printf "%.1f" (divBytes $p.Size) }} MB{{ else }}—{{ end }}</td>
+                        <td>{{ if $p.Failed }}<span class="status-badge failed">Failed</span>{{ else }}<span class="status-badge done">OK</span>{{ end }}</td>
+                    </tr>
+                    {{ if or $p.Error }}
+                    <tr class="pipeline-detail-row" style="display:none">
+                        <td colspan="6" class="pipeline-detail-cell">
+                            <div class="pipeline-detail-content">
+                                <span class="pipeline-detail-label">Error:</span>
+                                <span class="pipeline-detail-error mono">{{ $p.Error }}</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {{ end }}
+                    {{ end }}
+                    {{ else }}
+                    <tr><td colspan="6" class="empty-state">No pipeline history</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <!-- ════════ SYSTEM HEALTH ════════ -->
+    <!-- ════════ RECORDING RECONCILIATION ════════ -->
+    <details class="section" open>
+        <summary><span class="arrow">▶</span> Recording Reconciliation</summary>
+        <div class="section-body">
+            {{ if .Recon }}
+            <div class="recon-verdict recon-{{ .Recon.Verdict }}">
+                <span class="recon-dot"></span>
+                <span class="recon-verdict-text">
+                    {{ if eq .Recon.Verdict "critical" }}CRITICAL
+                    {{ else if eq .Recon.Verdict "warning" }}WARNING
+                    {{ else }}HEALTHY{{ end }}
+                </span>
+                <span class="recon-verdict-detail">{{ .Recon.VerdictDetail }}</span>
+            </div>
+            <div class="detail-grid" style="margin-top:12px">
+                <div class="detail-item">
+                    <div class="label">On this node's disk</div>
+                    <div class="val">{{ .Recon.LocalFiles }} files · {{ .Recon.LocalBytesHuman }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">In Supabase (global)</div>
+                    <div class="val">{{ if .Recon.HasSupabase }}{{ .Recon.SupabaseTotal }} rows{{ else }}unavailable{{ end }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">No host at all (global)</div>
+                    <div class="val {{ if gt .Recon.NoHosts 0 }}recon-critical-text{{ end }}">{{ if .Recon.HasNoHosts }}{{ .Recon.NoHosts }} rows{{ else }}unavailable{{ end }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Link writes (this node)</div>
+                    <div class="val{{ if and .Recon.LinkWritePathChecked (not .Recon.LinkWritePathOK) }} recon-critical-text{{ end }}"{{ if .Recon.LinkWritePathDetail }} title="{{ .Recon.LinkWritePathDetail }}"{{ end }}>{{ if not .Recon.LinkWritePathChecked }}not checked yet{{ else if .Recon.LinkWritePathOK }}ok{{ else }}FAILING{{ end }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Orphans (not in any host)</div>
+                    <div class="val">{{ .Recon.Orphans }} files · {{ .Recon.OrphanBytesHuman }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">In upload pipeline</div>
+                    <div class="val">{{ .Recon.InFlight }} files</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Stuck / likely lost</div>
+                    <div class="val {{ if gt .Recon.Stuck 0 }}recon-critical-text{{ end }}">{{ .Recon.Stuck }} files · {{ .Recon.StuckBytesHuman }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Never started (0 bytes)</div>
+                    <div class="val {{ if gt .Recon.ZeroByteStuck 0 }}recon-critical-text{{ end }}">{{ .Recon.ZeroByteStuck }} files</div>
+                </div>
+            </div>
+            <div class="recon-note">
+                Supabase totals and the no-host count are fleet-wide (recordings aren't node-scoped), while disk counts are for this node only.
+                <b>No host at all</b> counts recordings whose content never reached a host: a recordings row is written at enqueue time, so a row is not proof of an upload.
+                <b>Link writes</b> is a canary: this node writes a probe upload link and removes it, so a database-side rule that rejects the insert (a broken trigger, a type mismatch) shows up here instead of as a fleet of recordings that never get a host.
+                The reliable loss signal is <b>Stuck</b> — files on disk with no uploaded copy that aren't being uploaded.
+            </div>
+            {{ else }}
+            <div class="empty-state">Reconciliation unavailable.</div>
+            {{ end }}
+        </div>
+    </details>
+
+    <details class="section">
+        <summary><span class="arrow">▶</span> System Health</summary>
+        <div class="section-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="label">Go Version</div>
+                    <div class="val">{{ .GoVersion }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Goroutines</div>
+                    <div class="val">{{ .GoGoroutines }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Memory (Heap)</div>
+                    <div class="val">{{ .GoMemoryMB }} MB</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">CPU Cores</div>
+                    <div class="val">{{ .GoNumCPU }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Uptime</div>
+                    <div class="val">{{ .Uptime }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">FFmpeg</div>
+                    <div class="val">
+                        {{ if .FFmpegFound }}
+                        <span class="status-badge active" style="font-size:10px">Available</span>
+                        {{ else }}
+                        <span class="status-badge failed" style="font-size:10px">Not found</span>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <!-- ════════ CONFIGURATION ════════ -->
+    <details class="section">
+        <summary><span class="arrow">▶</span> Configuration</summary>
+        <div class="section-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="label">Output Dir</div>
+                    <div class="val">{{ if .Config.OutputDir }}{{ .Config.OutputDir }}{{ else }}videos/{{ end }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Compress</div>
+                    <div class="val">{{ if .Config.Compress }}Yes{{ else }}No{{ end }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Delete After Upload</div>
+                    <div class="val">{{ if .Config.DeleteLocalAfterUpload }}Yes{{ else }}No{{ end }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Min Duration</div>
+                    <div class="val">{{ .Config.MinDurationBeforeUpload }}s</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Session Duration</div>
+                    <div class="val">{{ .Config.SessionDuration }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Per-Model Folder</div>
+                    <div class="val">{{ if .Config.PerModelFolder }}Yes{{ else }}No{{ end }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">FFmpeg Path</div>
+                    <div class="val">{{ if .Config.FFmpegPath }}{{ .Config.FFmpegPath }}{{ else }}default{{ end }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Port</div>
+                    <div class="val">{{ .Config.Port }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Orphan Cleanup Interval</div>
+                    <div class="val">{{ .Config.OrphanCleanupInterval }}m</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Max Local Age</div>
+                    <div class="val">{{ .Config.MaxLocalAgeDays }} days</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Disk Warning</div>
+                    <div class="val">{{ .Config.DiskWarningPercent }}%</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Disk Critical</div>
+                    <div class="val">{{ .Config.DiskCriticalPercent }}%</div>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <!-- ════════ DISK ════════ -->
+    <details class="section">
+        <summary><span class="arrow">▶</span> Disk Usage</summary>
+        <div class="section-body">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;margin-top:4px;">
+                <span style="font-size:13px;font-weight:600">{{ .Disk.Used }} / {{ .Disk.Total }}</span>
+                <span style="font-size:11px;color:var(--text-muted)">{{ .Disk.Free }} free</span>
+            </div>
+            <div class="disk-bar">
+                <div class="fill" style="width:{{ .Disk.Percent }}%;{{ if gt .Disk.Percent 80 }}background:linear-gradient(90deg,#ef4444,#dc2626){{ else if gt .Disk.Percent 60 }}background:linear-gradient(90deg,#f59e0b,#d97706){{ else }}background:linear-gradient(90deg,#10b981,#059669){{ end }}"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:4px;">
+                <span>{{ .Disk.Percent }}% used</span>
+                <span>{{ .Disk.UsedGB | printf "%.1f" }} GB / {{ .Disk.TotalGB | printf "%.1f" }} GB</span>
+            </div>
+        </div>
+    </details>
+
+</div>
+
+<script>
+(function() {
+    var ar = document.getElementById('auto-refresh');
+    ar.checked = localStorage.getItem('admin-auto-refresh') !== 'false';
+    if (ar.checked) {
+        startLivePoll();
+        scheduleRefresh();
+    }
+
+    // Theme toggle button
+    var themeBtn = document.getElementById('theme-btn');
+    if (themeBtn) {
+        themeBtn.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    }
+
+    // Persist section open/closed state
+    var sections = document.querySelectorAll('details.section');
+    sections.forEach(function(s) {
+        var key = 'admin-section-' + (s.querySelector('summary')?.textContent?.trim() || '');
+        var saved = localStorage.getItem(key);
+        if (saved === 'closed') s.removeAttribute('open');
+        else if (saved === 'open') s.setAttribute('open', '');
+        s.addEventListener('toggle', function() {
+            localStorage.setItem(key, this.open ? 'open' : 'closed');
+        });
+    });
+})();
+
+var refreshTimer = null;
+var livePollTimer = null;
+
+function toggleAutoRefresh() {
+    var cb = document.getElementById('auto-refresh');
+    localStorage.setItem('admin-auto-refresh', cb.checked);
+    if (cb.checked) {
+        startLivePoll();
+        scheduleRefresh();
+    } else {
+        stopLivePoll();
+        if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+    }
+}
+
+function startLivePoll() {
+    stopLivePoll();
+    // Poll uploads every 2s, proxies every 5s for live updates
+    livePollTimer = setInterval(function() {
+        pollUploads();
+        pollProxies();
+    }, 2000);
+}
+
+function stopLivePoll() {
+    if (livePollTimer) { clearInterval(livePollTimer); livePollTimer = null; }
+}
+
+// ── Upload Polling ──
+
+function pollUploads() {
+    fetch('/api/uploads')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data) return;
+            updateUploadsSection(data);
+            updateMetricsUploads(data);
+            updateUploadMatrix(data);
+            updatePipelineQueue(data);
+            updatePipelineHistory(data);
+        })
+        .catch(function() {/* silent */});
+}
+
+// ── Proxy Polling ──
+
+var _lastProxyPoll = 0;
+var _proxyPollInterval = 5000; // poll proxy status every 5s (less churn than uploads)
+
+function pollProxies() {
+    var now = Date.now();
+    if (now - _lastProxyPoll < _proxyPollInterval) return;
+    _lastProxyPoll = now;
+    fetch('/api/proxies')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data) return;
+            updateProxySection(data);
+        })
+        .catch(function() {/* silent */});
+}
+
+function updateMetricsUploads(data) {
+    var active = (data.active || []).length;
+    var pending = (data.pending || []).length;
+    var hist = (data.history || []).length;
+
+    // Update metrics cards without full page reload
+    var cards = document.querySelectorAll('.metric-card');
+    if (cards.length >= 5) {
+        var activeCard = cards[4];
+        var val = activeCard.querySelector('.value');
+        var sub = activeCard.querySelector('.sub');
+        if (val) val.textContent = active;
+        if (sub) sub.textContent = pending + ' pending';
+    }
+    if (cards.length >= 6) {
+        var histCard = cards[5];
+        var val = histCard.querySelector('.value');
+        var sub = histCard.querySelector('.sub');
+        if (val) val.textContent = active + pending;
+        if (sub) sub.textContent = (data.pending || []).length + ' queued';
+    }
+    // Pipeline History metric card (index 7)
+    if (cards.length >= 8) {
+        var plHistCard = cards[7];
+        var val = plHistCard.querySelector('.value');
+        if (val) val.textContent = hist;
+        var sub = plHistCard.querySelector('.sub');
+        if (sub) {
+            var failedCount = 0;
+            for (var i = 0; i < hist; i++) {
+                if (data.history[i].failed) failedCount++;
+            }
+            sub.textContent = failedCount + ' failed';
+        }
+    }
+
+
+}
+
+function updateUploadsSection(data) {
+    var active = (data.active || []);
+    var container = document.getElementById('uploads-table-body');
+    var summary = document.getElementById('uploads-summary');
+    if (!container) return;
+
+    if (active.length === 0) {
+        container.innerHTML = '<tr><td colspan="7" class="empty-state">No active uploads</td></tr>';
+        if (summary) {
+            summary.innerHTML = '<span class="badge">0 uploading</span>';
+            summary.style.display = 'none';
+        }
+        return;
+    }
+
+    var html = '';
+    for (var i = 0; i < active.length; i++) {
+        var c = active[i];
+        var pct = Math.min(Math.max(c.progress || 0, 0), 100);
+        var hostRows = '';
+        if (c.hosts && c.hosts.length > 0) {
+            hostRows = '<div class="host-list"><span class="host-tag">' + (c.host_count || 0) + '/' + (c.host_total || '?') + ' done</span>';
+            for (var j = 0; j < c.hosts.length; j++) {
+                var h = c.hosts[j];
+                var cls = h.status === 'done' ? 'ok' : h.status === 'failed' ? 'fail' : '';
+                hostRows += '<span class="host-tag ' + cls + '" title="' + escAttr(h.host || '') + ': ' + Math.round(h.progress || 0) + '%' + (h.speed ? ' @ ' + h.speed : '') + '">' + escHtml(h.host || '') + '</span>';
+            }
+            hostRows += '</div>';
+        }
+        html += '<tr>'
+            + '<td><strong>' + escHtml(c.channel || '') + '</strong></td>'
+            + '<td class="mono truncate" title="' + escAttr(c.filename || '') + '">' + escHtml(c.filename || '') + '</td>'
+            + '<td><span class="status-badge active">' + escHtml(c.status || '') + '</span></td>'
+            + '<td style="min-width:140px">' + Math.round(pct) + '%<div class="progress-bar"><div class="fill ok" style="width:' + pct + '%"></div></div></td>'
+            + '<td>' + (hostRows || '<span style="color:var(--text-muted);font-size:10px">—</span>') + '</td>'
+            + '<td class="mono">' + (c.bytes_total > 0 ? (c.bytes_current || 0) + '/' + (c.bytes_total || 0) : '—') + '</td>'
+            + '<td class="mono">' + (c.speed || '—') + '</td>'
+            + '</tr>';
+    }
+    container.innerHTML = html;
+
+    if (summary) {
+        summary.innerHTML = '<span class="badge uploading">' + active.length + ' uploading</span>';
+        summary.style.display = '';
+    }
+}
+
+function updateUploadMatrix(data) {
+    var active = data.active || [];
+    var body = document.getElementById('upload-matrix-body');
+    if (!body) return;
+
+    // Group every host's in-flight uploads into one section per host.
+    var groups = {};
+    var order = [];
+    for (var i = 0; i < active.length; i++) {
+        var c = active[i];
+        var hosts = c.hosts || [];
+        for (var j = 0; j < hosts.length; j++) {
+            var h = hosts[j];
+            var name = (h.host || '?');
+            if (!groups[name]) { groups[name] = []; order.push(name); }
+            groups[name].push({
+                status: h.status || 'pending',
+                progress: h.progress || 0,
+                speed: h.speed || '',
+                bytes_current: h.bytes_current || 0,
+                bytes_total: h.bytes_total || 0,
+                channel: c.channel || '',
+                filename: c.filename || ''
+            });
+        }
+    }
+
+    var totalCards = 0;
+    for (var g = 0; g < order.length; g++) totalCards += groups[order[g]].length;
+
+    if (order.length === 0) {
+        body.innerHTML = '<div class="empty-state">No active uploads</div>';
+        var s0 = document.getElementById('matrix-summary');
+        if (s0) s0.style.display = 'none';
+        return;
+    }
+
+    order.sort(); // stable alphabetical host sections
+
+    var html = '';
+    for (var gi = 0; gi < order.length; gi++) {
+        var host = order[gi];
+        var items = groups[host];
+        var hostUploading = 0;
+        for (var z = 0; z < items.length; z++) {
+            if (items[z].status === 'uploading') hostUploading++;
+        }
+        html += '<div class="matrix-section">'
+            + '<div class="matrix-section-head"><span class="matrix-section-title">' + escHtml(host) + '</span>'
+            + '<span class="matrix-section-count">' + items.length + ' upload' + (items.length === 1 ? '' : 's')
+            + (hostUploading ? ' · ' + hostUploading + ' active' : '') + '</span></div>'
+            + '<div class="matrix-section-grid">';
+        for (var k = 0; k < items.length; k++) {
+            var t = items[k];
+            var pct = Math.min(Math.max(t.progress, 0), 100);
+            var cls = t.status === 'done' ? 'ok' : t.status === 'failed' ? 'fail' : t.status === 'pending' ? 'pending' : 'active';
+            var barCls = t.status === 'done' ? 'ok' : t.status === 'failed' ? 'fail' : t.status === 'pending' ? 'pending' : '';
+            html += '<div class="host-card ' + cls + '">'
+                + '<div class="host-card-top"><span class="host-name">' + escHtml(t.channel) + '</span>'
+                + '<span class="host-status">' + escHtml(t.status) + '</span></div>'
+                + '<div class="host-card-file mono" title="' + escAttr(t.filename) + '">' + escHtml(t.filename) + '</div>'
+                + '<div class="progress-bar"><div class="fill ' + barCls + '" style="width:' + pct + '%"></div></div>'
+                + '<div class="host-card-meta"><span>' + Math.round(pct) + '%</span>' + (t.speed ? '<span>' + escHtml(t.speed) + '</span>' : '') + '</div>'
+                + '<div class="host-card-bytes mono">' + (t.bytes_total > 0 ? fmtBytes(t.bytes_current) + ' / ' + fmtBytes(t.bytes_total) : '—') + '</div>'
+                + '</div>';
+        }
+        html += '</div></div>';
+    }
+    body.innerHTML = html;
+
+    var s = document.getElementById('matrix-summary');
+    if (s) {
+        s.style.display = '';
+        s.textContent = order.length + ' host' + (order.length === 1 ? '' : 's') + ' · ' + totalCards + ' upload' + (totalCards === 1 ? '' : 's');
+    }
+}
+
+// ── Pipeline Queue / History Real-Time Updates ──
+
+function togglePipelineDetail(btn) {
+    var row = btn.closest('tr');
+    if (!row) return;
+    var detailRow = row.nextElementSibling;
+    if (!detailRow || !detailRow.classList.contains('pipeline-detail-row')) return;
+    var open = detailRow.style.display !== 'none';
+    detailRow.style.display = open ? 'none' : '';
+    btn.textContent = open ? '▸' : '▾';
+    btn.classList.toggle('open', !open);
+}
+
+function updatePipelineQueue(data) {
+    var pending = data.pending || [];
+    var tbody = document.getElementById('pipeline-queue-body');
+    var countEl = document.getElementById('pipeline-queue-count');
+    if (!tbody) return;
+
+    // Build a key set of current filenames for diffing
+    var newKeys = {};
+    for (var i = 0; i < pending.length; i++) newKeys[pending[i].filename] = true;
+
+    // Detect removed entries (flash them out before clearing)
+    var existing = tbody.querySelectorAll('tr.pipeline-row');
+    var hasRemovals = false;
+    for (var j = 0; j < existing.length; j++) {
+        var fn = existing[j].getAttribute('data-filename');
+        if (fn && !newKeys[fn]) {
+            existing[j].classList.add('removed-entry');
+            hasRemovals = true;
+        }
+    }
+
+    function renderQueue() {
+        if (pending.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No pending pipelines</td></tr>';
+        } else {
+            var html = '';
+            for (var i = 0; i < pending.length; i++) {
+                var p = pending[i];
+                var sizeStr = p.size > 0 ? (p.size / 1048576).toFixed(1) + ' MB' : '—';
+                html += '<tr class="pipeline-row new-entry" data-filename="' + escAttr(p.filename || '') + '">'
+                    + '<td><button class="pipeline-expand-btn" onclick="togglePipelineDetail(this)" title="Toggle details">▸</button></td>'
+                    + '<td><strong>' + escHtml(p.channel || '') + '</strong></td>'
+                    + '<td class="mono truncate" title="' + escAttr(p.filename || '') + '">' + escHtml(p.filename || '') + '</td>'
+                    + '<td><span class="status-badge pending">' + escHtml(p.stage || '') + '</span></td>'
+                    + '<td class="mono">' + sizeStr + '</td>'
+                    + '<td>' + (p.failed ? '<span class="status-badge failed">Yes</span>' : '<span class="status-badge done">No</span>') + '</td>'
+                    + '</tr>';
+                if (p.error) {
+                    html += '<tr class="pipeline-detail-row" style="display:none">'
+                        + '<td colspan="6" class="pipeline-detail-cell">'
+                        + '<div class="pipeline-detail-content">'
+                        + '<span class="pipeline-detail-label">Error:</span>'
+                        + '<span class="pipeline-detail-error mono">' + escHtml(p.error) + '</span>'
+                        + '</div></td></tr>';
+                }
+            }
+            tbody.innerHTML = html;
+        }
+        if (countEl) countEl.textContent = pending.length;
+    }
+
+    if (hasRemovals) {
+        setTimeout(renderQueue, 500);
+    } else {
+        renderQueue();
+    }
+}
+
+function updatePipelineHistory(data) {
+    var history = data.history || [];
+    var tbody = document.getElementById('pipeline-history-body');
+    var countEl = document.getElementById('pipeline-history-count');
+    if (!tbody) return;
+
+    // Detect new entries by comparing filenames
+    var oldKeys = {};
+    var existing = tbody.querySelectorAll('tr.pipeline-row');
+    for (var j = 0; j < existing.length; j++) {
+        var fn = existing[j].getAttribute('data-filename');
+        if (fn) oldKeys[fn] = true;
+    }
+
+    if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No pipeline history</td></tr>';
+    } else {
+        var html = '';
+        for (var i = 0; i < history.length; i++) {
+            var p = history[i];
+            var isNew = !oldKeys[p.filename];
+            var sizeStr = p.size > 0 ? (p.size / 1048576).toFixed(1) + ' MB' : '—';
+            html += '<tr class="pipeline-row' + (isNew ? ' new-entry' : '') + '" data-filename="' + escAttr(p.filename || '') + '">'
+                + '<td><button class="pipeline-expand-btn" onclick="togglePipelineDetail(this)" title="Toggle details">▸</button></td>'
+                + '<td><strong>' + escHtml(p.channel || '') + '</strong></td>'
+                + '<td class="mono truncate" title="' + escAttr(p.filename || '') + '">' + escHtml(p.filename || '') + '</td>'
+                + '<td><span class="status-badge done">' + escHtml(p.stage || '') + '</span></td>'
+                + '<td class="mono">' + sizeStr + '</td>'
+                + '<td>' + (p.failed ? '<span class="status-badge failed">Failed</span>' : '<span class="status-badge done">OK</span>') + '</td>'
+                + '</tr>';
+            if (p.error) {
+                html += '<tr class="pipeline-detail-row" style="display:none">'
+                    + '<td colspan="6" class="pipeline-detail-cell">'
+                    + '<div class="pipeline-detail-content">'
+                    + '<span class="pipeline-detail-label">Error:</span>'
+                    + '<span class="pipeline-detail-error mono">' + escHtml(p.error) + '</span>'
+                    + '</div></td></tr>';
+            }
+        }
+        tbody.innerHTML = html;
+    }
+    if (countEl) countEl.textContent = history.length;
+}
+
+function fmtBytes(n) {
+    n = Number(n) || 0;
+    if (n >= 1073741824) return (n / 1073741824).toFixed(2) + ' GB';
+    if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+    if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+    return n + ' B';
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function scheduleRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function() {
+        location.reload();
+    }, 12000);
+}
+
+function toggleTheme() {
+    var html = document.documentElement;
+    html.classList.toggle('dark');
+    var isDark = html.classList.contains('dark');
+    localStorage.setItem('darkMode', isDark);
+    var btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+}
+
+function stopAllChannels() {
+    if (!confirm('Stop all channels and begin processing uploads?')) return;
+    var btn = event.target;
+    btn.textContent = '⏳ Stopping...';
+    btn.style.opacity = '0.5';
+    btn.style.pointerEvents = 'none';
+    fetch('/api/session/stop', { method: 'POST' }).then(function() {
+        btn.textContent = '✅ Stopped';
+        setTimeout(function() { location.reload(); }, 2000);
+    }).catch(function() {
+        btn.textContent = '❌ Failed';
+        setTimeout(function() { location.reload(); }, 2000);
+    });
+}
+
+function updateProxySection(data) {
+    // Update pool count
+    var countEl = document.getElementById('proxy-pool-count');
+    if (countEl) countEl.textContent = data.pool_size || 0;
+
+    // Update summary badges
+    var badgesEl = document.getElementById('proxy-summary-badges');
+    if (badgesEl) {
+        var badges = '';
+        if (data.cookies_ok) {
+            badges += '<span class="badge online" style="background:rgba(16,185,129,0.12);color:#10b981;font-size:10px">Cookies OK</span>';
+        } else {
+            badges += '<span class="badge" style="background:rgba(239,68,68,0.12);color:#ef4444;font-size:10px">No Cookies</span>';
+        }
+        if (data.refreshing && data.refresh_proxy) {
+            badges += '<span class="badge pending" style="font-size:10px;animation:pulse 1.2s ease-in-out infinite">\u27F3 ' + escHtml(data.refresh_proxy) + '</span>';
+        } else if (data.refreshing) {
+            badges += '<span class="badge pending" style="font-size:10px;animation:pulse 1.2s ease-in-out infinite">Refreshing</span>';
+        }
+        if (data.prewarming) {
+            badges += '<span class="badge uploading" style="font-size:10px">Pre-warming</span>';
+        }
+        if (data.dead_count > 0) {
+            badges += '<span class="badge" style="background:rgba(239,68,68,0.12);color:#ef4444;font-size:10px">' + data.dead_count + ' dead</span>';
+        }
+        badgesEl.innerHTML = badges;
+    }
+
+    // Update proxy cards container
+    var cardsEl = document.getElementById('proxy-cards-container');
+    if (!cardsEl) return;
+
+    var proxies = data.proxies || [];
+    if (proxies.length === 0) {
+        cardsEl.innerHTML = '<div class="empty-state">No proxies configured or discovered</div>';
+        cardsEl.className = 'empty-state';
+        cardsEl.style.cssText = '';
+        return;
+    }
+
+    // Restore flex container style
+    cardsEl.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin-top:10px';
+    cardsEl.className = '';
+
+    var isRefreshing = data.refreshing && data.refresh_proxy ? true : false;
+    var refreshProxyUrl = data.refresh_proxy || '';
+    var html = '';
+    for (var i = 0; i < proxies.length; i++) {
+        var p = proxies[i];
+        var thisIsRefreshing = isRefreshing && p.proxy === refreshProxyUrl;
+        var borderColor = thisIsRefreshing ? '#3b82f6' : (p.current ? 'var(--accent)' : 'var(--border-color)');
+        var shadow = thisIsRefreshing ? 'animation:refresh-glow 1.5s ease-in-out infinite' : (p.current ? 'box-shadow:0 0 0 1px var(--accent-glow)' : '');
+        var roleHtml = p.current
+            ? '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:4px;background:rgba(212,160,83,0.12);color:var(--accent)">Active</span>'
+            : '<span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:4px;background:var(--bg-input);color:var(--text-muted)">Standby</span>';
+
+        // Status tags
+        var tags = '';
+        if (p.cookies) {
+            tags += '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.12);color:#10b981" title="Cached cookies, age: ' + escAttr(p.cookies_age) + '">\uD83C\uDF6A ' + escHtml(p.cookies_age || '') + '</span>';
+        } else {
+            tags += '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(239,68,68,0.12);color:#ef4444">\uD83C\uDF6A None</span>';
+        }
+        if (p.dead) {
+            tags += '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(239,68,68,0.12);color:#ef4444" title="Cooldown until ' + escAttr(p.dead_until || '') + '">\u2715 Dead</span>';
+        } else {
+            tags += '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.12);color:#10b981">\u2713 Alive</span>';
+        }
+        if (thisIsRefreshing) {
+            tags += '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.15);color:#3b82f6;animation:pulse 1.2s ease-in-out infinite">\u27F3 Scrapling...</span>';
+        } else if (p.prewarmed) {
+            tags += '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.12);color:#3b82f6">\u27F3 Pre-warmed</span>';
+        }
+
+        html += '<div style="cursor:pointer;background:var(--bg-card);border:1px solid ' + borderColor + ';border-radius:10px;padding:12px 14px;min-width:200px;flex:1;max-width:280px;transition:opacity 0.2s,border-color 0.2s;' + shadow + '" onclick="refreshProxy(' + p.index + ', this)" title="Click to refresh cookies through this proxy">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+            + '<span class="proxy-url" style="font-family:ui-monospace,monospace;font-size:11px;font-weight:600;color:var(--text-primary)" title="' + escAttr(p.proxy) + '">' + escHtml(p.proxy) + '</span>'
+            + roleHtml
+            + '</div>'
+            + '<div class="proxy-status-tags" style="display:flex;flex-wrap:wrap;gap:4px">'
+            + tags
+            + '</div>'
+            + '</div>';
+    }
+    cardsEl.innerHTML = html;
+}
+
+function discoverProxies() {
+    var btn = document.getElementById('discover-proxies-btn');
+    if (!btn) return;
+    var originalText = btn.textContent;
+    btn.textContent = '⟳ Discovering...';
+    btn.style.opacity = '0.6';
+    btn.style.pointerEvents = 'none';
+    btn.style.background = 'rgba(212,160,83,0.12)';
+    btn.style.color = 'var(--accent)';
+
+    fetch('/api/proxies/discover', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            btn.textContent = '✓ ' + (d.count || 0) + ' proxies';
+            btn.style.background = 'rgba(16,185,129,0.12)';
+            btn.style.color = '#10b981';
+            // Refresh the proxy section to show new pool
+            _lastProxyPoll = 0; // force immediate refresh
+            pollProxies();
+        })
+        .catch(function() {
+            btn.textContent = '✕ Failed';
+            btn.style.background = 'rgba(239,68,68,0.12)';
+            btn.style.color = '#ef4444';
+        })
+        .finally(function() {
+            setTimeout(function() {
+                btn.textContent = originalText;
+                btn.style.opacity = '';
+                btn.style.pointerEvents = '';
+                btn.style.background = 'var(--bg-input)';
+                btn.style.color = 'var(--text-secondary)';
+            }, 4000);
+        });
+}
+
+function refreshProxy(index, el) {
+    // Visual feedback: disable and show spinner
+    el.style.opacity = '0.5';
+    el.style.pointerEvents = 'none';
+    var originalBorder = el.style.borderColor;
+    el.style.borderColor = 'var(--accent)';
+
+    // Add a temporary "Refreshing..." tag
+    var tagsEl = el.querySelector('.proxy-status-tags');
+    var spinner = document.createElement('span');
+    spinner.style.cssText = 'font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(212,160,83,0.15);color:var(--accent);animation:pulse 1.2s ease-in-out infinite';
+    spinner.textContent = '⟳ Refreshing...';
+    if (tagsEl) tagsEl.appendChild(spinner);
+
+    fetch('/api/proxies/refresh', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({index: index})
+    })
+    .then(function(r) {
+        if (r.status === 202) {
+            spinner.textContent = '✓ Started';
+            spinner.style.background = 'rgba(16,185,129,0.12)';
+            spinner.style.color = '#10b981';
+        } else {
+            return r.json().then(function(d) {
+                spinner.textContent = '✕ ' + (d.error || 'Failed');
+                spinner.style.background = 'rgba(239,68,68,0.12)';
+                spinner.style.color = '#ef4444';
+            });
+        }
+    })
+    .catch(function() {
+        spinner.textContent = '✕ Error';
+        spinner.style.background = 'rgba(239,68,68,0.12)';
+        spinner.style.color = '#ef4444';
+    })
+    .finally(function() {
+        // Re-enable after a moment
+        setTimeout(function() {
+            el.style.opacity = '';
+            el.style.pointerEvents = '';
+            el.style.borderColor = originalBorder || '';
+            if (spinner && spinner.parentNode) {
+                spinner.parentNode.removeChild(spinner);
+            }
+        }, 3000);
+    });
+}
+
+function channelAction(action, username) {
+    if (action === 'stop' && !confirm('Delete channel "' + username + '"?')) return;
+    var url = '/' + action + '_channel/' + encodeURIComponent(username);
+    fetch(url, {method: 'POST'}).then(function() {
+        location.reload();
+    }).catch(function() {
+        location.reload();
+    });
+}
+
+</script>
+
+<script>
+// ── Upload Keys panel ─────────────────────────────────────────────────────
+// Polls /api/upload_keys every 45s for live health, and drives the
+// add / remove / test buttons. Row status cells are re-rendered from JSON;
+// the add-form inputs live OUTSIDE the tbody so a poll never wipes typing.
+
+var _ukTimer = null;
+// While a row is being edited inline, polling and re-rendering are paused so
+// the operator's half-typed credential is never wiped by a background refresh.
+var _ukEditing = null; // { host: string, fp: string } | null
+(function() { startUploadKeyPoll(); })();
+
+function startUploadKeyPoll() {
+    if (_ukTimer) clearInterval(_ukTimer);
+    pollUploadKeys();
+    _ukTimer = setInterval(pollUploadKeys, 45000);
+}
+
+function pollUploadKeys() {
+    if (_ukEditing) return;
+    fetch('/api/upload_keys')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { if (data && data.hosts) updateUploadKeys(data); })
+        .catch(function() {/* silent */});
+}
+
+function ukEsc(s) {
+    var d = document.createElement('div');
+    d.textContent = (s == null) ? '' : String(s);
+    return d.innerHTML;
+}
+
+function ukBadge(status) {
+    var m = {
+        healthy:  ['uk-healthy', 'healthy'],
+        dead:     ['uk-dead', 'dead'],
+        quota:    ['uk-quota', 'quota'],
+        unknown:  ['uk-unknown', 'unknown'],
+        untested: ['uk-untested', 'untested']
+    };
+    var v = m[status] || m['untested'];
+    return '<span class="uk-badge ' + v[0] + '">' + v[1] + '</span>';
+}
+
+function ukFmtTime(iso) {
+    if (!iso || iso.indexOf('0001-') === 0) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+function updateUploadKeys(data) {
+    var total = 0;
+    (data.hosts || []).forEach(function(hv) {
+        var hostEl = document.querySelector('.uk-host[data-host="' + hv.host + '"]');
+        if (!hostEl) return;
+        if (_ukEditing && _ukEditing.host === hv.host) return;
+        var html = '';
+        (hv.keys || []).forEach(function(k) {
+            total++;
+            html += '<tr data-fp="' + ukEsc(k.fingerprint) + '">'
+                + '<td class="mono">' + ukEsc(k.display) + '</td>'
+                + '<td>' + ukBadge(k.status) + '</td>'
+                + '<td class="mono" style="font-size:10px">' + ukFmtTime(k.last_checked) + '</td>'
+                + '<td class="uk-msg">' + ukEsc(k.message) + '</td>'
+                + '<td style="white-space:nowrap">'
+                + '<button type="button" class="btn-action" data-act="edit" title="Edit this key in place — the host\'s other keys are preserved">Edit</button> '
+                + '<button type="button" class="btn-action" data-act="probe">Test</button> '
+                + '<button type="button" class="btn-action btn-action-del" data-act="remove">✕</button>'
+                + '</td></tr>';
+        });
+        var tb = hostEl.querySelector('.uk-tbody');
+        if (tb) tb.innerHTML = html || '<tr><td colspan="5" class="empty-state">No keys configured</td></tr>';
+    });
+    var tot = document.getElementById('uk-total');
+    if (tot) tot.textContent = (data.total != null) ? data.total : total;
+}
+
+function ukPost(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    }).then(function(r) {
+        return r.json().then(function(d) {
+            if (!r.ok) alert(d.error || ('HTTP ' + r.status));
+            return d;
+        });
+    });
+}
+
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!btn || !btn.closest) return;
+    var inHosts = btn.closest('#uk-hosts');
+    var act = btn.getAttribute('data-act');
+    if (act === 'probe-all') {
+        btn.disabled = true;
+        ukPost('/api/upload_keys/probe', {}).then(function(d) {
+            btn.disabled = false;
+            if (d.ok) updateUploadKeys(d);
+        }).catch(function() { btn.disabled = false; });
+        return;
+    }
+    if (!inHosts) return;
+    var hostEl = btn.closest('.uk-host');
+    if (!hostEl) return;
+    var host = hostEl.getAttribute('data-host');
+    if (act === 'edit') {
+        if (_ukEditing) return;
+        var erow = btn.closest('tr');
+        var efp = erow && erow.getAttribute('data-fp');
+        if (!efp) return;
+        var editFields = '';
+        hostEl.querySelectorAll('.uk-add [data-field]').forEach(function(inp) {
+            editFields += '<input class="uk-input" data-field="' + ukEsc(inp.getAttribute('data-field')) + '"'
+                + ' type="' + ukEsc(inp.getAttribute('type') || 'text') + '"'
+                + ' placeholder="' + ukEsc(inp.getAttribute('placeholder') || '') + '" />';
+        });
+        _ukEditing = { host: host, fp: efp };
+        erow.innerHTML = '<td colspan="5"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+            + editFields
+            + '<button type="button" class="btn-action" data-act="edit-save">Save</button>'
+            + '<button type="button" class="btn-action" data-act="edit-cancel">Cancel</button>'
+            + '<span class="uk-note">Re-enter every field for this account; the host\'s other keys are preserved.</span>'
+            + '</div></td>';
+    } else if (act === 'edit-save') {
+        var srow = btn.closest('tr');
+        var sfp = _ukEditing && _ukEditing.fp;
+        if (!srow || !sfp) return;
+        var sfields = {};
+        srow.querySelectorAll('[data-field]').forEach(function(inp) {
+            sfields[inp.getAttribute('data-field')] = inp.value.trim();
+        });
+        btn.disabled = true;
+        ukPost('/api/upload_keys/edit', {
+            host: host,
+            fingerprint: sfp,
+            key: sfields.key || '',
+            login: sfields.login || '',
+            email: sfields.email || '',
+            token: sfields.token || ''
+        }).then(function(d) {
+            if (d.ok) {
+                _ukEditing = null;
+                updateUploadKeys(d);
+                setTimeout(pollUploadKeys, 3000); // probe result lands shortly after
+            }
+        }).catch(function(err) { alert('Edit failed: ' + err); })
+          .finally(function() { btn.disabled = false; });
+    } else if (act === 'edit-cancel') {
+        _ukEditing = null;
+        pollUploadKeys();
+    } else if (act === 'add') {
+        var fields = {};
+        hostEl.querySelectorAll('.uk-add [data-field]').forEach(function(inp) {
+            fields[inp.getAttribute('data-field')] = inp.value.trim();
+        });
+        btn.disabled = true;
+        ukPost('/api/upload_keys/add', {
+            host: host,
+            key: fields.key || '',
+            login: fields.login || '',
+            email: fields.email || '',
+            token: fields.token || ''
+        }).then(function(d) {
+            btn.disabled = false;
+            if (d.ok) {
+                hostEl.querySelectorAll('.uk-add [data-field]').forEach(function(inp) { inp.value = ''; });
+                updateUploadKeys(d);
+                setTimeout(pollUploadKeys, 3000); // probe result lands shortly after
+            }
+        }).catch(function() { btn.disabled = false; });
+    } else if (act === 'remove') {
+        var row = btn.closest('tr');
+        var fp = row && row.getAttribute('data-fp');
+        if (!fp) return;
+        if (!confirm('Remove this ' + host + ' key from the whole fleet?')) return;
+        ukPost('/api/upload_keys/remove', { host: host, fingerprint: fp }).then(function(d) {
+            if (d.ok) updateUploadKeys(d);
+        }).catch(function(err) { alert('Remove failed: ' + err); });
+    } else if (act === 'probe') {
+        var prow = btn.closest('tr');
+        var pfp = prow && prow.getAttribute('data-fp');
+        if (!pfp) return;
+        btn.disabled = true;
+        ukPost('/api/upload_keys/probe', { host: host, fingerprint: pfp }).then(function(d) {
+            if (d.ok) { updateUploadKeys(d); }
+        }).finally(function() { btn.disabled = false; });
+    }
+});
+</script>
+</body>
+</html>

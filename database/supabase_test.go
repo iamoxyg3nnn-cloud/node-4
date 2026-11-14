@@ -1,0 +1,1041 @@
+package database
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+// reqRecord captures one request the fake Supabase received.
+type reqRecord struct {
+	method string
+	path   string // raw RequestURI (escaped), what actually hits the proxy
+	body   string
+}
+
+// fakeSupabase is an in-memory stand-in for the PostgREST API. GET requests
+// return `limit` fabricated channel rows; PATCH requests echo back the rows
+// matched by username=in.(...) so the client's decode path is exercised.
+type fakeSupabase struct {
+	mu        sync.Mutex
+	reqs      []reqRecord
+	failPatch int // when > 0, the Nth PATCH (1-based) responds HTTP 400
+}
+
+func (f *fakeSupabase) handler(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+
+	f.mu.Lock()
+	f.reqs = append(f.reqs, reqRecord{method: r.Method, path: r.URL.RequestURI(), body: string(body)})
+	patchNo := 0
+	for _, rec := range f.reqs {
+		if rec.method == "PATCH" {
+			patchNo++
+		}
+	}
+	shouldFail := r.Method == "PATCH" && f.failPatch > 0 && patchNo == f.failPatch
+	f.mu.Unlock()
+
+	if shouldFail {
+		// Plain 400 — non-retryable in requestWithRetry, so the test stays fast.
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"message":"boom"}`)
+		return
+	}
+
+	q := r.URL.Query()
+	switch r.Method {
+	case "GET":
+		limit := 0
+		if v := q.Get("limit"); v != "" {
+			fmt.Sscanf(v, "%d", &limit)
+		}
+		if limit > 100 {
+			limit = 100 // keep the fake cheap for limit=50000 fetches
+		}
+		rows := make([]ChannelAssignment, 0, limit)
+		for i := 0; i < limit; i++ {
+			rows = append(rows, ChannelAssignment{Username: fmt.Sprintf("u%03d", i), Site: "chaturbate"})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(rows)
+	case "PATCH":
+		// Return the rows matched by username=in.(...) when the filter is present.
+		var rows []ChannelAssignment
+		if v := q.Get("username"); strings.HasPrefix(v, "in.(") && strings.HasSuffix(v, ")") {
+			inner := v[len("in.(") : len(v)-1]
+			if inner != "" {
+				for _, name := range strings.Split(inner, ",") {
+					rows = append(rows, ChannelAssignment{Username: name, Site: "chaturbate"})
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(rows)
+	default:
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func newTestClient(t *testing.T, fake *fakeSupabase) *Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(fake.handler))
+	t.Cleanup(srv.Close)
+	return &Client{URL: srv.URL, APIKey: "test-key", client: srv.Client()}
+}
+
+func (f *fakeSupabase) patchRequests() []reqRecord {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []reqRecord
+	for _, rec := range f.reqs {
+		if rec.method == "PATCH" {
+			out = append(out, rec)
+		}
+	}
+	return out
+}
+
+// usernamesFromInFilter extracts the usernames carried by a username=in.(...)
+// filter in a request path.
+func usernamesFromInFilter(path string) []string {
+	idx := strings.Index(path, "?")
+	if idx < 0 {
+		return nil
+	}
+	q, err := url.ParseQuery(path[idx+1:])
+	if err != nil {
+		return nil
+	}
+	v := q.Get("username")
+	if !strings.HasPrefix(v, "in.(") || !strings.HasSuffix(v, ")") {
+		return nil
+	}
+	inner := v[len("in.(") : len(v)-1]
+	if inner == "" {
+		return nil
+	}
+	return strings.Split(inner, ",")
+}
+
+func makePairs(n int) [][2]string {
+	pairs := make([][2]string, n)
+	for i := range pairs {
+		pairs[i] = [2]string{fmt.Sprintf("model_%03d", i), "chaturbate"}
+	}
+	return pairs
+}
+
+// ============================================================================
+// ResetStaleRecordingAssignments (protected-owner exclusion)
+// ============================================================================
+
+// TestResetStaleRecordingAssignmentsExcludesProtectedNodes verifies that a
+// stale recording marker whose owner is in protectedNodeIDs is never touched:
+// the PATCH filter must exclude those nodes server-side, so a live node's
+// in-progress recording cannot be unpinned and handed to a second node just
+// because its assignment-sync heartbeat refresh lagged.
+func TestResetStaleRecordingAssignmentsExcludesProtectedNodes(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	before := time.Now().UTC().Add(-2 * time.Minute)
+	if _, err := c.ResetStaleRecordingAssignments(before, []string{"node-a", "node-b"}); err != nil {
+		t.Fatalf("ResetStaleRecordingAssignments error: %v", err)
+	}
+
+	reqs := fake.patchRequests()
+	if len(reqs) != 1 {
+		t.Fatalf("got %d PATCH requests, want 1", len(reqs))
+	}
+	path := reqs[0].path
+	if !strings.Contains(path, "status=eq.recording") {
+		t.Fatalf("PATCH missing recording filter: %s", path)
+	}
+	if !strings.Contains(path, "last_heartbeat.is.null") {
+		t.Fatalf("PATCH missing null-heartbeat clause: %s", path)
+	}
+	if !strings.Contains(path, "assigned_node=not.in.(node-a,node-b)") {
+		t.Fatalf("PATCH missing protected-owner exclusion: %s", path)
+	}
+	if reqs[0].body != `{"status":"claimed"}` {
+		t.Fatalf("PATCH body = %s, want {\"status\":\"claimed\"}", reqs[0].body)
+	}
+}
+
+// TestResetStaleRecordingAssignmentsNoProtectedNodes verifies that with an
+// empty protected list the reset keeps its original behaviour (no exclusion
+// filter), so a genuinely dead runner's leftover marker is still cleaned up.
+func TestResetStaleRecordingAssignmentsNoProtectedNodes(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	before := time.Now().UTC().Add(-2 * time.Minute)
+	if _, err := c.ResetStaleRecordingAssignments(before, nil); err != nil {
+		t.Fatalf("ResetStaleRecordingAssignments error: %v", err)
+	}
+	reqs := fake.patchRequests()
+	if len(reqs) != 1 {
+		t.Fatalf("got %d PATCH requests, want 1", len(reqs))
+	}
+	if strings.Contains(reqs[0].path, "assigned_node=") {
+		t.Fatalf("empty protected list must not add an exclusion filter: %s", reqs[0].path)
+	}
+}
+
+// TestResetStaleRecordingAssignmentsEmptyProtectedSameAsNil treats an empty
+// (non-nil) protected list exactly like nil — the controller builds the list
+// from a map that is often empty at cold start.
+func TestResetStaleRecordingAssignmentsEmptyProtectedSameAsNil(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	before := time.Now().UTC().Add(-2 * time.Minute)
+	if _, err := c.ResetStaleRecordingAssignments(before, []string{}); err != nil {
+		t.Fatalf("ResetStaleRecordingAssignments error: %v", err)
+	}
+	reqs := fake.patchRequests()
+	if len(reqs) != 1 {
+		t.Fatalf("got %d PATCH requests, want 1", len(reqs))
+	}
+	if strings.Contains(reqs[0].path, "assigned_node=") {
+		t.Fatalf("empty protected list must not add an exclusion filter: %s", reqs[0].path)
+	}
+}
+
+// maxFilterURLLen is a generous bound: the real proxy limit is ~8KB, so any
+// URL the client builds must stay far under it (a regression here would have
+// shipped the fleet-wide HTTP 414 deadlock again).
+const maxFilterURLLen = 3000
+
+// ============================================================================
+// ReleaseExcessOfflineChannels / ReleaseExcessChannels
+// ============================================================================
+
+func TestReleaseNodeOfflineChannels(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	n, err := c.ReleaseNodeOfflineChannels("node-18", nil)
+	if err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if n == 0 {
+		t.Fatal("expected a non-zero release count from the fake GET")
+	}
+
+	// Exactly one GET (count) + one PATCH (release), and the PATCH filter is a
+	// tiny filter-based URL — no giant username=in.(...) list.
+	var getPath, patchPath string
+	for _, rec := range fake.reqs {
+		if rec.method == "GET" {
+			getPath = rec.path
+		} else if rec.method == "PATCH" {
+			patchPath = rec.path
+		}
+	}
+	if getPath == "" || patchPath == "" {
+		t.Fatalf("expected one GET and one PATCH, got GET=%q PATCH=%q", getPath, patchPath)
+	}
+	if strings.Contains(patchPath, "username=in.(") {
+		t.Errorf("release PATCH must not carry a username in-list: %s", patchPath)
+	}
+	if len(patchPath) > maxFilterURLLen {
+		t.Errorf("release PATCH URL is %d bytes (> %d, 414 risk)", len(patchPath), maxFilterURLLen)
+	}
+	if strings.Contains(patchPath, "select=") {
+		t.Errorf("release PATCH should not carry select=, got: %s", patchPath)
+	}
+	for _, want := range []string{"assigned_node=eq.node-18", "is_live=eq.false", "status=neq.recording"} {
+		if !strings.Contains(patchPath, want) {
+			t.Errorf("release PATCH missing %q: %s", want, patchPath)
+		}
+	}
+}
+
+func TestReleaseNodeOfflineChannelsExcludesPaused(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	if _, err := c.ReleaseNodeOfflineChannels("node-18", []string{"paused_user"}); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+
+	for _, rec := range fake.reqs {
+		if rec.method == "PATCH" {
+			if !strings.Contains(rec.path, "username=not.in.(paused_user)") {
+				t.Errorf("release PATCH must exclude paused usernames, got: %s", rec.path)
+			}
+		}
+	}
+}
+
+func TestDeleteChannelsNotInChunked(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	// The fake serves 100 existing channels (u000..u099); keeping 2 means 98
+	// must be deleted → ceil(98/40) = 3 DELETE batches.
+	if err := c.DeleteChannelsNotIn([]string{"u000", "u001"}); err != nil {
+		t.Fatalf("DeleteChannelsNotIn: %v", err)
+	}
+
+	var deletes []reqRecord
+	for _, rec := range fake.reqs {
+		if rec.method == "DELETE" {
+			deletes = append(deletes, rec)
+		}
+	}
+	if want := (98 + releaseBatchSize - 1) / releaseBatchSize; len(deletes) != want {
+		t.Fatalf("DELETE count = %d, want %d", len(deletes), want)
+	}
+	for i, rec := range deletes {
+		if len(rec.path) > maxFilterURLLen {
+			t.Errorf("DELETE %d URL is %d bytes (> %d, 414 risk)", i, len(rec.path), maxFilterURLLen)
+		}
+		if strings.Contains(rec.path, "not.in.(") {
+			t.Errorf("DELETE %d must delete by in.(toDelete), not not.in.(keep): %s", i, rec.path)
+		}
+		if !strings.Contains(rec.path, "username=in.(") {
+			t.Errorf("DELETE %d missing username=in.(...) filter: %s", i, rec.path)
+		}
+	}
+}
+
+func TestDeleteChannelsNotInEmptyDeletesAll(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	if err := c.DeleteChannelsNotIn(nil); err != nil {
+		t.Fatalf("DeleteChannelsNotIn(nil): %v", err)
+	}
+	// Empty keep-list = delete everything: exactly one filter-less DELETE.
+	if len(fake.reqs) != 1 || fake.reqs[0].method != "DELETE" || fake.reqs[0].path != "/rest/v1/channels" {
+		t.Errorf("expected exactly one DELETE to /rest/v1/channels, got %+v", fake.reqs)
+	}
+}
+
+func TestDeleteChannelsNotInAllKeptNoDeletes(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	// Keep all 100 fake channels → nothing to delete.
+	keep := make([]string, 0, 100)
+	for i := 0; i < 100; i++ {
+		keep = append(keep, fmt.Sprintf("u%03d", i))
+	}
+	if err := c.DeleteChannelsNotIn(keep); err != nil {
+		t.Fatalf("DeleteChannelsNotIn: %v", err)
+	}
+	for _, rec := range fake.reqs {
+		if rec.method == "DELETE" {
+			t.Errorf("no channels are stale — got unexpected DELETE: %s", rec.path)
+		}
+	}
+}
+
+func TestReleaseExcessOfflineChannelsChunked(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	const limit = 100
+	released, err := c.ReleaseExcessOfflineChannels("node-18", limit)
+	if err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if len(released) != limit {
+		t.Fatalf("released %d rows, want %d", len(released), limit)
+	}
+
+	patchReqs := fake.patchRequests()
+	if want := (limit + releaseBatchSize - 1) / releaseBatchSize; len(patchReqs) != want {
+		t.Fatalf("PATCH count = %d, want %d (chunked)", len(patchReqs), want)
+	}
+
+	seen := map[string]bool{}
+	for i, rec := range patchReqs {
+		if len(rec.path) > maxFilterURLLen {
+			t.Errorf("PATCH %d URL is %d bytes (> %d, 414 risk): %s", i, len(rec.path), maxFilterURLLen, rec.path)
+		}
+		names := usernamesFromInFilter(rec.path)
+		if len(names) > releaseBatchSize {
+			t.Errorf("PATCH %d carries %d usernames, batch cap is %d", i, len(names), releaseBatchSize)
+		}
+		for _, n := range names {
+			if seen[n] {
+				t.Errorf("username %s released more than once", n)
+			}
+			seen[n] = true
+		}
+	}
+	if len(seen) != limit {
+		t.Errorf("distinct released usernames = %d, want %d", len(seen), limit)
+	}
+}
+
+func TestReleaseExcessOfflineChannelsSingleBatch(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	released, err := c.ReleaseExcessOfflineChannels("node-1", 20)
+	if err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if len(released) != 20 {
+		t.Fatalf("released %d rows, want 20", len(released))
+	}
+	if got := len(fake.patchRequests()); got != 1 {
+		t.Fatalf("PATCH count = %d, want 1 (fits in one batch)", got)
+	}
+}
+
+func TestReleaseExcessOfflineChannelsZeroLimit(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	released, err := c.ReleaseExcessOfflineChannels("node-1", 0)
+	if err != nil || released != nil {
+		t.Fatalf("expected (nil, nil), got (released=%v, err=%v)", released, err)
+	}
+	if len(fake.reqs) != 0 {
+		t.Fatalf("expected no requests for limit 0, got %d", len(fake.reqs))
+	}
+}
+
+func TestReleaseExcessOfflineChannelsPartialFailure(t *testing.T) {
+	fake := &fakeSupabase{failPatch: 2} // second batch fails
+	c := newTestClient(t, fake)
+
+	released, err := c.ReleaseExcessOfflineChannels("node-18", 100)
+	if err == nil {
+		t.Fatal("expected an error when a batch fails")
+	}
+	if !strings.Contains(err.Error(), "batch 2") {
+		t.Errorf("error should name the failed batch, got: %v", err)
+	}
+	if len(released) != releaseBatchSize {
+		t.Fatalf("released %d rows on partial failure, want %d (only the first chunk)", len(released), releaseBatchSize)
+	}
+}
+
+func TestReleaseExcessChannelsChunked(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	// 60 offline + 40 online = 100 targets → 3 PATCH batches.
+	released, err := c.ReleaseExcessChannels("node-18", 100)
+	if err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if len(released) != 100 {
+		t.Fatalf("released %d rows, want 100", len(released))
+	}
+	patchReqs := fake.patchRequests()
+	if want := (100 + releaseBatchSize - 1) / releaseBatchSize; len(patchReqs) != want {
+		t.Fatalf("PATCH count = %d, want %d", len(patchReqs), want)
+	}
+	for i, rec := range patchReqs {
+		if len(rec.path) > maxFilterURLLen {
+			t.Errorf("PATCH %d URL is %d bytes (> %d, 414 risk)", i, len(rec.path), maxFilterURLLen)
+		}
+	}
+}
+
+// ============================================================================
+// SetChannelsLive / SetChannelsNotLive
+// ============================================================================
+
+func TestSetChannelsLiveChunked(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	const pairs = 65 // 65 / 30 → 3 batches
+	if err := c.SetChannelsLive(makePairs(pairs)); err != nil {
+		t.Fatalf("SetChannelsLive: %v", err)
+	}
+
+	patchReqs := fake.patchRequests()
+	if want := (pairs + livenessBatchSize - 1) / livenessBatchSize; len(patchReqs) != want {
+		t.Fatalf("PATCH count = %d, want %d", len(patchReqs), want)
+	}
+	for i, rec := range patchReqs {
+		if len(rec.path) > maxFilterURLLen {
+			t.Errorf("PATCH %d URL is %d bytes (> %d, 414 risk): %s", i, len(rec.path), maxFilterURLLen, rec.path)
+		}
+		if !strings.Contains(rec.path, "or=") {
+			t.Errorf("PATCH %d missing or= filter: %s", i, rec.path)
+		}
+	}
+}
+
+func TestSetChannelsNotLiveClearsThenSets(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	const pairs = 65
+	if err := c.SetChannelsNotLive(makePairs(pairs)); err != nil {
+		t.Fatalf("SetChannelsNotLive: %v", err)
+	}
+
+	patchReqs := fake.patchRequests()
+	// 1 clear-all PATCH + ceil(65/30) set-live PATCHes.
+	if want := 1 + (pairs+livenessBatchSize-1)/livenessBatchSize; len(patchReqs) != want {
+		t.Fatalf("PATCH count = %d, want %d (1 clear + %d set-live)", len(patchReqs), want, (pairs+livenessBatchSize-1)/livenessBatchSize)
+	}
+
+	// First PATCH must be the tiny clear-all (no or= filter, no giant not.or).
+	if strings.Contains(patchReqs[0].path, "or=") {
+		t.Errorf("clear-all PATCH should have no or= filter, got: %s", patchReqs[0].path)
+	}
+	if len(patchReqs[0].path) > maxFilterURLLen {
+		t.Errorf("clear-all PATCH URL is %d bytes (> %d)", len(patchReqs[0].path), maxFilterURLLen)
+	}
+	// ...and it must spare rows that are actively recording.  Step 2 only
+	// re-marks pairs confirmed live in THIS cycle, so clearing a recording row
+	// left it as status='recording' + is_live=false while the node was in fact
+	// streaming it.
+	if !strings.Contains(patchReqs[0].path, "status=neq.recording") {
+		t.Errorf("clear-all PATCH must exclude recording rows, got: %s", patchReqs[0].path)
+	}
+
+	for i := 1; i < len(patchReqs); i++ {
+		if !strings.Contains(patchReqs[i].path, "or=") {
+			t.Errorf("set-live PATCH %d missing or= filter: %s", i, patchReqs[i].path)
+		}
+		if len(patchReqs[i].path) > maxFilterURLLen {
+			t.Errorf("set-live PATCH %d URL is %d bytes (> %d, 414 risk)", i, len(patchReqs[i].path), maxFilterURLLen)
+		}
+	}
+}
+
+func TestSetChannelsNotLiveEmptyClearsAll(t *testing.T) {
+	fake := &fakeSupabase{}
+	c := newTestClient(t, fake)
+
+	if err := c.SetChannelsNotLive(nil); err != nil {
+		t.Fatalf("SetChannelsNotLive(nil): %v", err)
+	}
+	patchReqs := fake.patchRequests()
+	if len(patchReqs) != 1 {
+		t.Fatalf("PATCH count = %d, want 1 (clear-all only)", len(patchReqs))
+	}
+	if strings.Contains(patchReqs[0].path, "or=") {
+		t.Errorf("clear-all PATCH should have no or= filter, got: %s", patchReqs[0].path)
+	}
+	if !strings.Contains(patchReqs[0].path, "status=neq.recording") {
+		t.Errorf("clear-all PATCH must exclude recording rows, got: %s", patchReqs[0].path)
+	}
+}
+
+// ============================================================================
+// PruneOrphanedAssignments
+// ============================================================================
+
+// fakePruneDB serves the two paginated reads PruneOrphanedAssignments performs
+// (channels, then assignments) and records every DELETE, so the prune logic can
+// be exercised without Supabase.
+type fakePruneDB struct {
+	mu          sync.Mutex
+	channels    []string
+	assignments []ChannelAssignment
+	deletes     []string
+}
+
+func (f *fakePruneDB) handler(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if r.Method == http.MethodDelete {
+		f.deletes = append(f.deletes, r.URL.RequestURI())
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if strings.HasPrefix(r.URL.Path, "/rest/v1/channels") {
+		rows := make([]channelUsernameRow, 0, len(f.channels))
+		for _, u := range f.channels {
+			rows = append(rows, channelUsernameRow{Username: u})
+		}
+		json.NewEncoder(w).Encode(rows)
+		return
+	}
+	json.NewEncoder(w).Encode(f.assignments)
+}
+
+func newPruneTestClient(t *testing.T, fake *fakePruneDB) *Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(fake.handler))
+	t.Cleanup(srv.Close)
+	return &Client{URL: srv.URL, APIKey: "test-key", client: srv.Client()}
+}
+
+// TestPruneOrphanedAssignmentsRemovesOnlyDeadChannels verifies the prune deletes
+// assignments whose channel is gone and leaves existing channels untouched.
+func TestPruneOrphanedAssignmentsRemovesOnlyDeadChannels(t *testing.T) {
+	fake := &fakePruneDB{
+		channels: []string{"alive1", "alive2"},
+		assignments: []ChannelAssignment{
+			{Username: "alive1", Site: "chaturbate", Status: "claimed"},
+			{Username: "alive2", Site: "chaturbate", Status: "claimed"},
+			{Username: "dead1", Site: "chaturbate", Status: "claimed"},
+			{Username: "dead2", Site: "chaturbate", Status: "claimed"},
+		},
+	}
+	c := newPruneTestClient(t, fake)
+
+	removed, err := c.PruneOrphanedAssignments()
+	if err != nil {
+		t.Fatalf("PruneOrphanedAssignments: %v", err)
+	}
+	if removed != 2 {
+		t.Errorf("removed = %d, want 2", removed)
+	}
+	if len(fake.deletes) != 1 {
+		t.Fatalf("DELETE count = %d, want 1", len(fake.deletes))
+	}
+	got := usernamesFromInFilter(fake.deletes[0])
+	if strings.Join(got, ",") != "dead1,dead2" {
+		t.Errorf("deleted usernames = %v, want [dead1 dead2]", got)
+	}
+	for _, name := range got {
+		if name == "alive1" || name == "alive2" {
+			t.Errorf("DELETE must never touch a live channel, got %v", got)
+		}
+	}
+}
+
+// TestPruneOrphanedAssignmentsSparesRecordingRows is the regression guard for
+// cutting off an in-progress recording: a deleted channel's row must survive
+// while it is still marked 'recording'.
+func TestPruneOrphanedAssignmentsSparesRecordingRows(t *testing.T) {
+	fake := &fakePruneDB{
+		channels: []string{"alive1"},
+		assignments: []ChannelAssignment{
+			{Username: "alive1", Site: "chaturbate", Status: "claimed"},
+			{Username: "goneRecording", Site: "chaturbate", Status: "recording"},
+			{Username: "goneIdle", Site: "chaturbate", Status: "claimed"},
+		},
+	}
+	c := newPruneTestClient(t, fake)
+
+	removed, err := c.PruneOrphanedAssignments()
+	if err != nil {
+		t.Fatalf("PruneOrphanedAssignments: %v", err)
+	}
+	if removed != 1 {
+		t.Errorf("removed = %d, want 1 (the recording row must be spared)", removed)
+	}
+	if len(fake.deletes) != 1 {
+		t.Fatalf("DELETE count = %d, want 1", len(fake.deletes))
+	}
+	if got := strings.Join(usernamesFromInFilter(fake.deletes[0]), ","); got != "goneIdle" {
+		t.Errorf("deleted usernames = %q, want \"goneIdle\"", got)
+	}
+	if !strings.Contains(fake.deletes[0], "status=neq.recording") {
+		t.Errorf("DELETE must carry the server-side recording guard, got: %s", fake.deletes[0])
+	}
+}
+
+// TestPruneOrphanedAssignmentsNoOrphansIsNoop ensures a healthy pool issues no
+// writes at all.
+func TestPruneOrphanedAssignmentsNoOrphansIsNoop(t *testing.T) {
+	fake := &fakePruneDB{
+		channels: []string{"a", "b"},
+		assignments: []ChannelAssignment{
+			{Username: "a", Site: "chaturbate"},
+			{Username: "b", Site: "stripchat"},
+		},
+	}
+	c := newPruneTestClient(t, fake)
+
+	removed, err := c.PruneOrphanedAssignments()
+	if err != nil {
+		t.Fatalf("PruneOrphanedAssignments: %v", err)
+	}
+	if removed != 0 || len(fake.deletes) != 0 {
+		t.Errorf("removed = %d, deletes = %d; want 0 and 0", removed, len(fake.deletes))
+	}
+}
+
+// TestPruneOrphanedAssignmentsBatchesUnderURLLimit pins the batching: a large
+// orphan set must be chunked (never one giant username in-list) and every URL
+// must stay far under the ~8KB proxy limit that caused the HTTP 414 deadlock.
+func TestPruneOrphanedAssignmentsBatchesUnderURLLimit(t *testing.T) {
+	const orphans = 95 // 95 / 40 → 3 DELETEs
+	fake := &fakePruneDB{channels: []string{"alive"}}
+	for i := 0; i < orphans; i++ {
+		fake.assignments = append(fake.assignments, ChannelAssignment{
+			Username: fmt.Sprintf("dead%03d_with_a_longer_performer_name", i),
+			Site:     "chaturbate",
+			Status:   "claimed",
+		})
+	}
+	c := newPruneTestClient(t, fake)
+
+	removed, err := c.PruneOrphanedAssignments()
+	if err != nil {
+		t.Fatalf("PruneOrphanedAssignments: %v", err)
+	}
+	if removed != orphans {
+		t.Errorf("removed = %d, want %d", removed, orphans)
+	}
+	if want := (orphans + assignmentPruneBatchSize - 1) / assignmentPruneBatchSize; len(fake.deletes) != want {
+		t.Fatalf("DELETE count = %d, want %d", len(fake.deletes), want)
+	}
+	for i, path := range fake.deletes {
+		if len(path) > maxFilterURLLen {
+			t.Errorf("DELETE %d URL is %d bytes (> %d, 414 risk)", i, len(path), maxFilterURLLen)
+		}
+	}
+}
+
+// TestPruneOrphanedAssignmentsSparesFreshRows is the regression guard for the
+// "we add channels but the pool never grows" bug: a brand-new assignment has no
+// channels-catalogue row yet (that row only appears once a node starts
+// recording it), so pruning on the catalogue alone deleted the row before the
+// fleet could ever claim it.  Anything inside assignmentPruneGrace must be safe.
+func TestPruneOrphanedAssignmentsSparesFreshRows(t *testing.T) {
+	fresh := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339Nano)
+	stale := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339Nano)
+
+	fake := &fakePruneDB{
+		assignments: []ChannelAssignment{
+			{Username: "freshAdd", Site: "chaturbate", Status: "unassigned", CreatedAt: fresh},
+			{Username: "oldDead", Site: "chaturbate", Status: "claimed", CreatedAt: stale},
+		},
+	}
+	c := newPruneTestClient(t, fake)
+
+	removed, err := c.PruneOrphanedAssignments()
+	if err != nil {
+		t.Fatalf("PruneOrphanedAssignments: %v", err)
+	}
+	if removed != 1 {
+		t.Errorf("removed = %d, want 1 (the fresh add must be spared)", removed)
+	}
+	if len(fake.deletes) != 1 {
+		t.Fatalf("DELETE count = %d, want 1", len(fake.deletes))
+	}
+	if got := strings.Join(usernamesFromInFilter(fake.deletes[0]), ","); got != "oldDead" {
+		t.Errorf("deleted usernames = %q, want \"oldDead\"", got)
+	}
+}
+
+// fakeCatalogueDB records the POST EnsureChannelExists issues.
+type fakeCatalogueDB struct {
+	mu       sync.Mutex
+	method   string
+	path     string
+	prefer   string
+	body     string
+	respCode int
+}
+
+func (f *fakeCatalogueDB) handler(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+
+	f.mu.Lock()
+	f.method = r.Method
+	f.path = r.URL.RequestURI()
+	f.prefer = r.Header.Get("Prefer")
+	f.body = string(body)
+	code := f.respCode
+	f.mu.Unlock()
+
+	if code != 0 {
+		w.WriteHeader(code)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+// TestEnsureChannelExistsUpsertsWithoutClobbering pins the contract the pool add
+// paths rely on: a minimal insert (username + the one NOT NULL column without a
+// default) upserted by username with resolution=ignore-duplicates, so an
+// existing catalogue row (and its scraped profile) is never overwritten.
+func TestEnsureChannelExistsUpsertsWithoutClobbering(t *testing.T) {
+	fake := &fakeCatalogueDB{}
+	srv := httptest.NewServer(http.HandlerFunc(fake.handler))
+	t.Cleanup(srv.Close)
+	c := &Client{URL: srv.URL, APIKey: "test-key", client: srv.Client()}
+
+	if err := c.EnsureChannelExists("  newchannel  "); err != nil {
+		t.Fatalf("EnsureChannelExists: %v", err)
+	}
+
+	if fake.method != http.MethodPost {
+		t.Errorf("method = %q, want POST", fake.method)
+	}
+	if !strings.HasPrefix(fake.path, "/rest/v1/channels?on_conflict=username") {
+		t.Errorf("path = %q, want /rest/v1/channels?on_conflict=username", fake.path)
+	}
+	if !strings.Contains(fake.prefer, "resolution=ignore-duplicates") {
+		t.Errorf("Prefer = %q, want resolution=ignore-duplicates", fake.prefer)
+	}
+	// SaveChannel posts a single object (PostgREST treats it as a one-row
+	// insert), so the body is one JSON object, not an array.
+	var row map[string]interface{}
+	if err := json.Unmarshal([]byte(fake.body), &row); err != nil {
+		t.Fatalf("body is not a JSON object: %v (%s)", err, fake.body)
+	}
+	if row["username"] != "newchannel" {
+		t.Errorf("username = %v, want trimmed \"newchannel\"", row["username"])
+	}
+	if _, ok := row["created_at"]; !ok {
+		t.Error("body must carry created_at (NOT NULL, no DB default)")
+	}
+}
+
+// TestEnsureChannelExistsEmptyUsernameIsNoop makes sure a blank username never
+// reaches the API (which would 400 on the NOT NULL username column).
+func TestEnsureChannelExistsEmptyUsernameIsNoop(t *testing.T) {
+	fake := &fakeCatalogueDB{}
+	srv := httptest.NewServer(http.HandlerFunc(fake.handler))
+	t.Cleanup(srv.Close)
+	c := &Client{URL: srv.URL, APIKey: "test-key", client: srv.Client()}
+
+	if err := c.EnsureChannelExists("   "); err != nil {
+		t.Fatalf("EnsureChannelExists(blank): %v", err)
+	}
+	if fake.method != "" {
+		t.Errorf("blank username must not issue a request, got %s %s", fake.method, fake.path)
+	}
+}
+
+// ============================================================================
+// AssignmentExistsFold (case-insensitive pool duplicate guard)
+// ============================================================================
+
+// fakeFoldDB serves one channel_assignments read and records the query so the
+// case-insensitive pool check can be exercised without Supabase.
+type fakeFoldDB struct {
+	mu   sync.Mutex
+	rows []ChannelAssignment
+	path string
+}
+
+func (f *fakeFoldDB) handler(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	f.path = r.URL.RequestURI()
+	rows := f.rows
+	f.mu.Unlock()
+
+	// Stands in for PostgREST's ilike: it returns whatever the test declares
+	// matches, including deliberate over-matches.
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rows)
+}
+
+func newFoldTestClient(t *testing.T, fake *fakeFoldDB) *Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(fake.handler))
+	t.Cleanup(srv.Close)
+	return &Client{URL: srv.URL, APIKey: "test-key", client: srv.Client()}
+}
+
+// TestAssignmentExistsFoldMatchesAnyCasing pins the reason the helper exists:
+// the pool key is case-sensitive but performer names are not, so adding
+// "lunaleoncouplewife" while "LunaLeonCoupleWife" is already pooled must be seen
+// as a duplicate (otherwise two nodes record the same room).
+func TestAssignmentExistsFoldMatchesAnyCasing(t *testing.T) {
+	fake := &fakeFoldDB{rows: []ChannelAssignment{{Username: "LunaLeonCoupleWife"}}}
+	c := newFoldTestClient(t, fake)
+
+	got, err := c.AssignmentExistsFold("lunaleoncouplewife", "chaturbate")
+	if err != nil {
+		t.Fatalf("AssignmentExistsFold: %v", err)
+	}
+	if !got {
+		t.Error("AssignmentExistsFold = false, want true (same room, different casing)")
+	}
+	if !strings.Contains(fake.path, "username=ilike.") {
+		t.Errorf("path = %q, want an ilike filter", fake.path)
+	}
+	if !strings.Contains(fake.path, "site=eq.chaturbate") {
+		t.Errorf("path = %q, want the site filter (the pool key is username+site)", fake.path)
+	}
+}
+
+// TestAssignmentExistsFoldRejectsOverMatch guards the other direction: '_' is a
+// SQL single-character wildcard, so ilike can return names that merely share the
+// pattern.  Only a real case-insensitive name match counts, or a legitimate add
+// would be refused.
+func TestAssignmentExistsFoldRejectsOverMatch(t *testing.T) {
+	fake := &fakeFoldDB{rows: []ChannelAssignment{
+		{Username: "lunaXleoncouplewife"}, // '_' in the query matched an arbitrary char
+	}}
+	c := newFoldTestClient(t, fake)
+
+	got, err := c.AssignmentExistsFold("luna_leoncouplewife", "chaturbate")
+	if err != nil {
+		t.Fatalf("AssignmentExistsFold: %v", err)
+	}
+	if got {
+		t.Error("AssignmentExistsFold = true for an ilike over-match, want false")
+	}
+}
+
+// TestAssignmentExistsFoldEmptyUsernameIsNoop makes sure a blank username never
+// reaches the API (the caller trims, but be explicit).
+func TestAssignmentExistsFoldEmptyUsernameIsNoop(t *testing.T) {
+	fake := &fakeFoldDB{}
+	c := newFoldTestClient(t, fake)
+
+	got, err := c.AssignmentExistsFold("   ", "chaturbate")
+	if err != nil || got {
+		t.Fatalf("blank username: got (%v, %v), want (false, nil)", got, err)
+	}
+	if fake.path != "" {
+		t.Errorf("blank username must not issue a request, got %s", fake.path)
+	}
+}
+
+// ============================================================================
+// TouchChannelRecordings (owned-but-idle last_recorded_at refresh)
+// ============================================================================
+
+// fakeTouchDB records touch RPC payloads and can simulate HTTP 204 (void RPC),
+// a PGRST202 (RPC not in schema cache), or a plain error response.
+type fakeTouchDB struct {
+	mu       sync.Mutex
+	reqs     []reqRecord
+	respCode int
+	respBody string
+}
+
+func (f *fakeTouchDB) handler(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	f.mu.Lock()
+	f.reqs = append(f.reqs, reqRecord{method: r.Method, path: r.URL.RequestURI(), body: string(body)})
+	code, respBody := f.respCode, f.respBody
+	f.mu.Unlock()
+
+	if code != 0 {
+		w.WriteHeader(code)
+		fmt.Fprint(w, respBody)
+		return
+	}
+	// Default: behave like a void SECURITY DEFINER RPC (204 No Content).
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func newTouchTestClient(t *testing.T, fake *fakeTouchDB) *Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(fake.handler))
+	t.Cleanup(srv.Close)
+	return &Client{URL: srv.URL, APIKey: "test-key", client: srv.Client()}
+}
+
+// TestTouchChannelRecordingsPayloadShape verifies the RPC path, the node id,
+// and that every (username, site) pair arrives in the JSON payload.
+func TestTouchChannelRecordingsPayloadShape(t *testing.T) {
+	fake := &fakeTouchDB{}
+	c := newTouchTestClient(t, fake)
+
+	channels := []ChannelAssignment{
+		{Username: "alice", Site: "chaturbate"},
+		{Username: "bob", Site: "stripchat"},
+	}
+	if err := c.TouchChannelRecordings("node-9", channels); err != nil {
+		t.Fatalf("TouchChannelRecordings: %v", err)
+	}
+
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.reqs) != 1 {
+		t.Fatalf("request count = %d, want 1", len(fake.reqs))
+	}
+	rec := fake.reqs[0]
+	if rec.method != "POST" || !strings.HasPrefix(rec.path, "/rest/v1/rpc/touch_channel_recordings") {
+		t.Fatalf("unexpected request: %s %s", rec.method, rec.path)
+	}
+	for _, want := range []string{`"p_node_id":"node-9"`, `"username":"alice"`, `"site":"chaturbate"`, `"username":"bob"`, `"site":"stripchat"`} {
+		if !strings.Contains(rec.body, want) {
+			t.Errorf("payload missing %s: %s", want, rec.body)
+		}
+	}
+}
+
+// TestTouchChannelRecordingsChunks verifies the 200-pair-per-RPC chunking.
+func TestTouchChannelRecordingsChunks(t *testing.T) {
+	fake := &fakeTouchDB{}
+	c := newTouchTestClient(t, fake)
+
+	const n = 450 // ceil(450/200) = 3 chunks
+	channels := make([]ChannelAssignment, n)
+	for i := range channels {
+		channels[i] = ChannelAssignment{Username: fmt.Sprintf("u%03d", i), Site: "chaturbate"}
+	}
+	if err := c.TouchChannelRecordings("node-1", channels); err != nil {
+		t.Fatalf("TouchChannelRecordings: %v", err)
+	}
+
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.reqs) != 3 {
+		t.Fatalf("request count = %d, want 3 chunks", len(fake.reqs))
+	}
+}
+
+// TestTouchChannelRecordingsEmptyNoRequest verifies an empty set is a no-op.
+func TestTouchChannelRecordingsEmptyNoRequest(t *testing.T) {
+	fake := &fakeTouchDB{}
+	c := newTouchTestClient(t, fake)
+
+	if err := c.TouchChannelRecordings("node-1", nil); err != nil {
+		t.Fatalf("TouchChannelRecordings(nil): %v", err)
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.reqs) != 0 {
+		t.Fatalf("request count = %d, want 0", len(fake.reqs))
+	}
+}
+
+// TestTouchChannelRecordings204 verifies the void-RPC (204 No Content) path
+// decodes cleanly — the mark/reset RPCs return 204 in production.
+func TestTouchChannelRecordings204(t *testing.T) {
+	fake := &fakeTouchDB{respCode: http.StatusNoContent}
+	c := newTouchTestClient(t, fake)
+
+	if err := c.TouchChannelRecordings("node-1", []ChannelAssignment{{Username: "a", Site: "chaturbate"}}); err != nil {
+		t.Fatalf("TouchChannelRecordings with 204: %v", err)
+	}
+}
+
+// TestTouchChannelRecordingsPGRST202SkipsSilently verifies the degradation
+// path: a project that has not applied the migration returns PGRST202 and the
+// call must be swallowed — staleness visibility is best-effort.
+func TestTouchChannelRecordingsPGRST202SkipsSilently(t *testing.T) {
+	fake := &fakeTouchDB{
+		respCode: http.StatusBadRequest,
+		respBody: `{"code":"PGRST202","message":"Could not find the function"}`,
+	}
+	c := newTouchTestClient(t, fake)
+
+	if err := c.TouchChannelRecordings("node-1", []ChannelAssignment{{Username: "a", Site: "chaturbate"}}); err != nil {
+		t.Fatalf("PGRST202 must be swallowed, got: %v", err)
+	}
+}
+
+// TestTouchChannelRecordingsErrorSurfaced verifies non-PGRST202 failures are
+// returned so the caller can log them.
+func TestTouchChannelRecordingsErrorSurfaced(t *testing.T) {
+	fake := &fakeTouchDB{
+		respCode: http.StatusBadRequest,
+		respBody: `{"message":"boom"}`,
+	}
+	c := newTouchTestClient(t, fake)
+
+	if err := c.TouchChannelRecordings("node-1", []ChannelAssignment{{Username: "a", Site: "chaturbate"}}); err == nil {
+		t.Fatalf("expected an error for a plain 400")
+	}
+}

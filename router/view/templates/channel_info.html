@@ -1,0 +1,188 @@
+{{ define "channel_info" }}
+<div data-status="{{ if and .IsOnline (not .IsPaused) }}recording{{ else if .IsPaused }}paused{{ else if .IsConnecting }}connecting{{ else }}offline{{ end }}"
+     data-online="{{ if .IsOnline }}true{{ else }}false{{ end }}"
+     data-room-status="{{ .RoomStatus }}">
+  <!-- Upload status for the global upload bar fallback -->
+  <span data-upload-status="{{ .UploadStatus }}" style="display:none"></span>
+  <span data-upload-filename="{{ .UploadFilename }}" style="display:none"></span>
+  <span data-upload-progress="{{ .UploadProgress }}" style="display:none"></span>
+
+  <!-- Mobile back -->
+  <button type="button" data-action="history-back" class="md:hidden inline-flex items-center gap-1.5 mb-4 text-xs font-medium text-zinc-500 hover:text-zinc-200 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Channels
+  </button>
+
+  <!-- Thumbnail -->
+  <div class="mb-4 rounded-xl overflow-hidden aspect-video relative group thumb-wrap">
+    {{ if .LiveThumbURL }}
+    <img src="/api/thumb/{{ .Username }}" decoding="async"
+         alt="{{ .Username }}"
+         class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+         loading="lazy" />
+    {{ else }}
+    <div class="w-full h-full flex items-center justify-center" style="background:rgba(255,255,255,0.03)">
+      <svg class="w-10 h-10 text-zinc-700" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+    </div>
+    {{ end }}
+    <!-- Gradient overlay -->
+    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none"></div>
+    <!-- REC badge (after disconnect the dot disappears too) -->
+    {{ if and .IsOnline (not .IsPaused) (not .IsConnecting) }}
+    <div class="absolute bottom-2.5 left-2.5">
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider badge-recording">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 rec-pulse shrink-0"></span>
+        REC
+      </span>
+    </div>
+    {{ end }}
+    {{ if .IsPaused }}
+    <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.28)">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold rounded-full uppercase tracking-wider badge-paused">
+        <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+        Paused
+      </span>
+    </div>
+    {{ end }}
+    <!-- Offline overlay (only when not connecting/reconnecting) -->
+    {{ if and (not .IsPaused) (not .IsOnline) (not .IsConnecting) }}
+    <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.3)">
+      <svg class="w-10 h-10 text-zinc-700" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+    </div>
+    {{ end }}
+  </div>
+
+  <!-- Name + Status -->
+  <div class="flex items-center justify-between gap-2 mb-1">
+    <div class="text-sm font-bold text-zinc-100 truncate">{{ .Username }}</div>
+    <div class="flex items-center gap-1 shrink-0">
+      {{ if .IsCompressing }}
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full uppercase tracking-wider shrink-0" style="background:rgba(192,132,252,0.12);border:1px solid rgba(192,132,252,0.25);color:#c084fc">
+        <svg class="w-2.5 h-2.5 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10"/></svg>
+        Encoding
+      </span>
+      {{ end }}
+      {{ if .AutoResumedFromPause }}
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full uppercase tracking-wider shrink-0" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.3);color:#2dd4bf" title="Channel was paused but still assigned — automatically resumed (stuck-pause recovery)">
+        <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Auto-Resumed
+      </span>
+      {{ end }}
+      {{ if and .IsOnline (not .IsPaused) }}
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full uppercase tracking-wider badge-recording">Recording</span>
+      {{ else if .IsConnecting }}
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full uppercase" style="color:#fbbf24;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25)">
+        <svg class="w-2.5 h-2.5 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10"/></svg>
+        Reconnecting
+      </span>
+      {{ else if .IsPaused }}
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full uppercase badge-paused"{{ if .PauseReason }} title="Paused — {{ .PauseReason }}"{{ end }}>
+        <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+        Paused
+      </span>
+      {{ else }}
+      <span class="inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full uppercase {{ if eq .RoomStatus "private" }}text-violet-400{{ else if eq .RoomStatus "away" }}text-amber-400{{ else }}badge-offline{{ end }}" style="{{ if eq .RoomStatus "private" }}background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2){{ else if eq .RoomStatus "away" }}background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2){{ else }}background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08){{ end }}">{{ if .RoomStatus }}{{ .RoomStatus }}{{ else }}Offline{{ end }}</span>
+      {{ end }}
+    </div>
+  </div>
+
+  <div class="mt-4 mb-4 info-divider" style="height:1px"></div>
+
+  <!-- Info rows -->
+  <div class="space-y-3.5">
+
+    <div class="flex gap-2.5">
+      <svg class="w-4 h-4 mt-0.5 text-zinc-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+      </svg>
+      <div class="min-w-0">
+        <div class="text-[9px] font-bold uppercase tracking-widest text-zinc-700 mb-0.5">Channel URL</div>
+        <a href="{{ .SiteDomain }}{{ .Username }}" target="_blank" class="text-[11px] text-amber-400 hover:text-amber-300 underline break-all transition-colors">{{ .SiteDomain }}{{ .Username }}</a>
+      </div>
+    </div>
+
+    <div class="flex gap-2.5">
+      <svg class="w-4 h-4 mt-0.5 text-zinc-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+      </svg>
+      <div class="min-w-0">
+        <div class="text-[9px] font-bold uppercase tracking-widest text-zinc-700 mb-0.5">Filename</div>
+        <div class="text-[11px] text-zinc-500 break-all font-mono">{{ if .Filename }}{{ .Filename }}{{ else }}&mdash;{{ end }}</div>
+      </div>
+    </div>
+
+    <div class="flex gap-2.5">
+      <svg class="w-4 h-4 mt-0.5 text-zinc-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 010 8.49m-8.48-.01a6 6 0 010-8.49m11.31-2.82a10 10 0 010 14.14m-14.14 0a10 10 0 010-14.14"/>
+      </svg>
+      <div class="min-w-0">
+        <div class="text-[9px] font-bold uppercase tracking-widest text-zinc-700 mb-0.5">Last Streamed</div>
+        <div class="text-[11px] text-zinc-500">{{ if .StreamedAt }}{{ .StreamedAt }}{{ if and .IsOnline (not .IsPaused) (not .IsConnecting) }} — <span class="text-emerald-400 font-bold">NOW</span>{{ else if .IsConnecting }} — <span class="text-amber-400 font-bold">Reconnecting</span>{{ end }}{{ else }}&mdash;{{ end }}</div>
+      </div>
+    </div>
+
+    <div class="flex gap-2.5">
+      <svg class="w-4 h-4 mt-0.5 text-zinc-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+      </svg>
+      <div class="min-w-0">
+        <div class="text-[9px] font-bold uppercase tracking-widest text-zinc-700 mb-0.5">Segment Duration</div>
+        <div class="text-[11px] text-zinc-500">{{ if .Duration }}{{ .Duration }}{{ if .MaxDuration }} / {{ .MaxDuration }}{{ end }}{{ else }}&mdash;{{ end }}</div>
+      </div>
+    </div>
+
+    <div class="flex gap-2.5">
+      <svg class="w-4 h-4 mt-0.5 text-zinc-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M22 12H2M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>
+      </svg>
+      <div class="min-w-0">
+        <div class="text-[9px] font-bold uppercase tracking-widest text-zinc-700 mb-0.5">Segment Filesize</div>
+        <div class="text-[11px] text-zinc-500">{{ if .Filesize }}{{ .Filesize }}{{ if .MaxFilesize }} / {{ .MaxFilesize }}{{ end }}{{ else }}&mdash;{{ end }}</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mt-5 info-divider" style="height:1px"></div>
+
+  <!-- Action buttons -->
+  <div class="grid grid-cols-2 gap-2 mt-4">
+    <div>
+      {{ if .IsPaused }}
+      <button type="button" class="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl transition-all"
+              style="background:linear-gradient(135deg,#d4a053,#a07830);color:white;box-shadow:0 4px 12px rgba(212,160,83,0.25)"
+              data-action="navigate" data-href="/resume_channel/{{ .Username }}">
+        <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Resume
+      </button>
+      {{ else }}
+      <button type="button" class="info-btn w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium rounded-xl transition-all text-zinc-400 hover:text-zinc-200"
+              data-action="navigate" data-href="/pause_channel/{{ .Username }}">
+        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+        Pause
+      </button>
+      {{ end }}
+    </div>
+    <div>
+      <button type="button" data-action="delete-channel" data-username="{{ .Username }}"
+              class="info-btn-delete w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium rounded-xl transition-all text-amber-500 hover:text-amber-300">
+        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+        </svg>
+        Delete
+      </button>
+    </div>
+  </div>
+
+</div>
+{{ end }}

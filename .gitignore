@@ -1,0 +1,130 @@
+# Binaries
+goondvr
+goondvr.exe
+chaturbate-dvr
+bin/
+*.exe
+
+# Local build output
+.build/
+
+# Cloudflare Workers build cache
+.wrangler/
+
+# Videos and recordings
+videos/*
+!videos/.gitkeep
+*.mp4
+*.mkv
+*.flv
+*.ts
+
+# Configuration (contains sensitive data)
+conf/*
+!conf/.gitkeep
+!conf/channels.json
+
+# Database files — ignore local state, never source.
+# These used to be exception-by-FILENAME, so every NEW database/*.go or *.sql
+# file was silently ignored until someone remembered to add it: two database
+# tests and their migrations came within one `git add database/` of never
+# shipping. Patterns instead, so that cannot happen again.
+database/*
+!database/.gitkeep
+!database/*.go
+!database/*.sql
+!database/recordings.json
+!database/settings.json
+!database/tunnel.json
+
+# AWS secrets and keys
+aws-secrets/
+*.pem
+*.key
+storage-key.txt
+
+# Logs
+*.log
+run_logs.txt
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Node modules (if any)
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# Go
+*.test
+*.out
+vendor/
+
+# AWS Secrets - NEVER commit these!
+aws-secrets/*.pem
+*.pem
+*.key
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.bak
+
+# Supabase CLI temp
+supabase/.temp/
+
+# Logs
+*.log
+run_logs.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+deploy.tar.gz
+last-run.txt
+
+# OpenClaude
+.openclaude/
+
+# Note: database/ is NOT ignored here — see "Database files" section above
+# (only database/* with !recordings.json exceptions)
+
+# Local data backups
+.audit/
+
+# Node coordination / scratch artifacts
+_node_urls.txt
+_nodes.json
+st_manifest.json
+_preview_scan.py
+manager/upload-complete.flag
+*.flag
+tunnel-url.txt
+

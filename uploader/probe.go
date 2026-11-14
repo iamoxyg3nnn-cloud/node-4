@@ -1,0 +1,444 @@
+package uploader
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+)
+
+// ProbeResult is the outcome of a credential check against an upload host's
+// API.  OK means the credential can actually accept a file — for the Verify*
+// checks that is a real upload round-trip, not just an account lookup.
+// Rejected means the host EXPLICITLY refused the credential (dead/revoked key
+// — safe to show as "dead"); Quota means the key/account is valid but cannot
+// upload right now (storage full, daily cap — safe to show as "quota"); none
+// set means the answer was ambiguous (transport error, host down, WAF page)
+// and the key must NOT be written off.
+type ProbeResult struct {
+	OK       bool   `json:"ok"`
+	Rejected bool   `json:"rejected"`
+	Quota    bool   `json:"quota,omitempty"`
+	Message  string `json:"message,omitempty"`
+}
+
+// probeHTTPClient is a short-timeout client for credential probes. Probes run
+// on the admin path and the background prober, where a hung host must not
+// stall the whole sweep.
+var probeHTTPClient = &http.Client{Timeout: 20 * time.Second}
+
+// probeGet performs the probe GET and returns status code + raw body.
+func probeGet(rawURL string) (int, []byte, error) {
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return 0, nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("User-Agent", defaultUserAgent)
+	resp, err := probeHTTPClient.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("request: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
+	return resp.StatusCode, body, nil
+}
+
+// ProbeVoeSX checks one VOE.sx API key via GET /upload/server.
+func ProbeVoeSX(apiKey string) ProbeResult {
+	status, body, err := probeGet(fmt.Sprintf("%s/upload/server?key=%s", voeSXAPIBase, url.QueryEscape(apiKey)))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return authVerdict(status, body)
+	}
+	if status != http.StatusOK {
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
+	}
+	var r voeSXServerResponse
+	if err := json.Unmarshal(body, &r); err != nil {
+		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
+	}
+	if r.Success {
+		return ProbeResult{OK: true}
+	}
+	msg := strings.TrimSpace(r.Msg)
+	if msg == "" {
+		msg = strings.TrimSpace(r.Message)
+	}
+	if msg == "" {
+		msg = snippet(body)
+	}
+	probeErr := fmt.Errorf("VOE.sx: %s", msg)
+	// Quota first, mirroring the upload flow: a storage-full message can also
+	// contain "api key" wording that the broad auth matcher would otherwise
+	// misclassify as a dead key.  Quota is deliberately NOT OK: a full account
+	// cannot accept an upload, so calling it healthy is what made the admin
+	// page show green keys while every real upload failed.
+	if isVoeStorageFull(probeErr) {
+		// The key authenticates fine; the account is simply full. Not dead,
+		// and not healthy either.
+		return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
+	}
+	if isVoeAuthError(probeErr) {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
+	return ProbeResult{Message: msg}
+}
+
+// ProbeVidara checks one Vidara API key via GET /upload/server.
+func ProbeVidara(apiKey string) ProbeResult {
+	status, body, err := probeGet(fmt.Sprintf("%s/upload/server?api_key=%s", vidaraAPIBase, url.QueryEscape(apiKey)))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return authVerdict(status, body)
+	}
+	if status != http.StatusOK {
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
+	}
+	var r vidaraServerResponse
+	if err := json.Unmarshal(body, &r); err != nil {
+		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
+	}
+	if r.Status == 200 && strings.TrimSpace(r.Result.UploadServer) != "" {
+		return ProbeResult{OK: true}
+	}
+	msg := strings.TrimSpace(r.Msg)
+	if msg == "" {
+		msg = snippet(body)
+	}
+	if isVidaraAuthError(fmt.Errorf("Vidara: %s", msg)) {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
+	return ProbeResult{Message: msg}
+}
+
+// ProbeLuluStream checks one LuluStream API key via GET /upload/server — the
+// same call the upload flow makes to obtain an upload node.
+func ProbeLuluStream(apiKey string) ProbeResult {
+	status, body, err := probeGet(fmt.Sprintf("%s/upload/server?key=%s", luluStreamAPIBase, url.QueryEscape(apiKey)))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return authVerdict(status, body)
+	}
+	if status != http.StatusOK {
+		// Doodstream-family APIs (which LuluStream follows) often answer an
+		// invalid key with HTTP 400 plus a JSON verdict rather than a 200 body.
+		// Classify that verdict instead of leaving the key "unknown" forever.
+		if status == http.StatusBadRequest {
+			var r luluStreamServerResponse
+			if json.Unmarshal(body, &r) == nil {
+				if msg := strings.TrimSpace(r.Msg); msg != "" {
+					probeErr := fmt.Errorf("LuluStream: %s", msg)
+					if isLuluStreamQuotaError(probeErr) {
+						return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
+					}
+					if isLuluStreamAuthError(probeErr) {
+						return ProbeResult{Rejected: true, Message: msg}
+					}
+					return ProbeResult{Message: msg}
+				}
+			}
+		}
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
+	}
+	var r luluStreamServerResponse
+	if err := json.Unmarshal(body, &r); err != nil {
+		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
+	}
+	if r.Status == 200 && r.uploadServer() != "" {
+		return ProbeResult{OK: true}
+	}
+	msg := strings.TrimSpace(r.Msg)
+	if msg == "" {
+		msg = snippet(body)
+	}
+	probeErr := fmt.Errorf("LuluStream: %s", msg)
+	if isLuluStreamQuotaError(probeErr) {
+		return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
+	}
+	if isLuluStreamAuthError(probeErr) {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
+	return ProbeResult{Message: msg}
+}
+
+// ProbeDoodStream checks one DoodStream API key via GET /upload/server — the
+// same call the upload flow makes to obtain an upload node.
+func ProbeDoodStream(apiKey string) ProbeResult {
+	status, body, err := probeGet(fmt.Sprintf("%s/upload/server?key=%s", doodStreamAPIBase, url.QueryEscape(apiKey)))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return authVerdict(status, body)
+	}
+	if status != http.StatusOK {
+		// DoodStream answers an invalid key with HTTP 400 plus a JSON verdict
+		// rather than a 200 body. Classify that verdict instead of leaving the
+		// key "unknown" forever.
+		if status == http.StatusBadRequest {
+			var r doodStreamServerResponse
+			if json.Unmarshal(body, &r) == nil {
+				if msg := strings.TrimSpace(r.Msg); msg != "" {
+					probeErr := fmt.Errorf("DoodStream: %s", msg)
+					if isDoodStreamQuotaError(probeErr) {
+						return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
+					}
+					if isDoodStreamAuthError(probeErr) {
+						return ProbeResult{Rejected: true, Message: msg}
+					}
+					return ProbeResult{Message: msg}
+				}
+			}
+		}
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
+	}
+	var r doodStreamServerResponse
+	if err := json.Unmarshal(body, &r); err != nil {
+		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
+	}
+	if int(r.Status) == 200 && r.uploadServer() != "" {
+		return ProbeResult{OK: true}
+	}
+	msg := strings.TrimSpace(r.Msg)
+	if msg == "" {
+		msg = snippet(body)
+	}
+	probeErr := fmt.Errorf("DoodStream: %s", msg)
+	if isDoodStreamQuotaError(probeErr) {
+		return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
+	}
+	if isDoodStreamAuthError(probeErr) {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
+	return ProbeResult{Message: msg}
+}
+
+// ProbeStreamtape checks one Streamtape login/key pair via GET /file/ul — the
+// same call the upload flow makes to obtain an upload URL.
+func ProbeStreamtape(login, key string) ProbeResult {
+	status, body, err := probeGet(fmt.Sprintf("%s/file/ul?login=%s&key=%s", streamtapeAPIBase, url.QueryEscape(login), url.QueryEscape(key)))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return authVerdict(status, body)
+	}
+	if status != http.StatusOK {
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
+	}
+	var r streamtapeServerResp
+	if err := json.Unmarshal(body, &r); err != nil {
+		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
+	}
+	if r.Status == 200 && strings.TrimSpace(r.Result.URL) != "" {
+		return ProbeResult{OK: true}
+	}
+	msg := strings.TrimSpace(r.Msg)
+	if msg == "" {
+		msg = snippet(body)
+	}
+	if isUploadAuthError(fmt.Errorf("streamtape: %s", msg)) {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
+	return ProbeResult{Message: msg}
+}
+
+// ProbeUpload18 checks one Upload18 API key via POST /upload/server.
+func ProbeUpload18(apiKey string) ProbeResult {
+	if strings.TrimSpace(apiKey) == "" {
+		return ProbeResult{Rejected: true, Message: "empty API key"}
+	}
+	form := url.Values{
+		"api_key": {apiKey},
+		"cid":     {"15"},
+	}
+	req, err := http.NewRequest(http.MethodPost, upload18APIBase+"/upload/server", strings.NewReader(form.Encode()))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", defaultUserAgent)
+	req.Header.Set("X-API-Key", apiKey)
+
+	resp, err := probeHTTPClient.Do(req)
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return authVerdict(resp.StatusCode, body)
+	}
+
+	var res upload18Response
+	if err := json.Unmarshal(body, &res); err == nil {
+		if res.ErrorCode == "invalid_api_key" || res.ErrorCode == "missing_api_key" {
+			return ProbeResult{Rejected: true, Message: res.Msg}
+		}
+		if res.ErrorCode == "invalid_upload" || res.Status == "success" {
+			return ProbeResult{OK: true, Message: "API key verified"}
+		}
+	}
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusUnprocessableEntity {
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", resp.StatusCode, snippet(body))}
+	}
+	return ProbeResult{OK: true, Message: "API key verified"}
+}
+
+// ProbeDropload checks one Dropload API key via GET /upload/server.
+func ProbeDropload(apiKey string) ProbeResult {
+	if strings.TrimSpace(apiKey) == "" {
+		return ProbeResult{Rejected: true, Message: "empty API key"}
+	}
+	status, body, err := probeGet(droploadAPIBase + "/upload/server?key=" + url.QueryEscape(apiKey))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return authVerdict(status, body)
+	}
+	if status != http.StatusOK {
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
+	}
+	var r droploadServerResponse
+	if err := json.Unmarshal(body, &r); err != nil {
+		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
+	}
+	if r.Status == 200 && r.uploadServer() != "" {
+		return ProbeResult{OK: true, Message: "upload server ready"}
+	}
+	msg := strings.TrimSpace(r.Msg)
+	if msg == "" {
+		msg = snippet(body)
+	}
+	probeErr := fmt.Errorf("dropload: %s", msg)
+	if isDroploadQuotaError(probeErr) {
+		return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
+	}
+	if isDroploadAuthError(probeErr) {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
+	return ProbeResult{Message: msg}
+}
+
+// ProbeVidero checks one Videro API key via GET /account/info.
+func ProbeVidero(apiKey string) ProbeResult {
+	if strings.TrimSpace(apiKey) == "" {
+		return ProbeResult{Rejected: true, Message: "empty API key"}
+	}
+	status, body, err := probeGet(videroAPIBase + "/account/info?key=" + url.QueryEscape(apiKey))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return authVerdict(status, body)
+	}
+	if status != http.StatusOK {
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
+	}
+	var r struct {
+		Status int    `json:"status"`
+		Msg    string `json:"msg"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
+	}
+	if r.Status == 200 {
+		return ProbeResult{OK: true, Message: "account verified"}
+	}
+	msg := strings.TrimSpace(r.Msg)
+	if msg == "" {
+		msg = snippet(body)
+	}
+	probeErr := fmt.Errorf("videro: %s", msg)
+	if isVideroQuotaError(probeErr) {
+		return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
+	}
+	if isVideroAuthError(probeErr) {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
+	return ProbeResult{Message: msg}
+}
+
+// ProbeFileHost checks one FileHost API key via GET /account/info.
+func ProbeFileHost(apiKey string) ProbeResult {
+	if strings.TrimSpace(apiKey) == "" {
+		return ProbeResult{Rejected: true, Message: "empty API key"}
+	}
+	status, body, err := probeGet(fileHostAPIBase + "/account/info?key=" + url.QueryEscape(apiKey))
+	if err != nil {
+		return ProbeResult{Message: err.Error()}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return authVerdict(status, body)
+	}
+	if status != http.StatusOK {
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
+	}
+	var r struct {
+		Status int    `json:"status"`
+		Msg    string `json:"msg"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
+	}
+	if r.Status == 200 {
+		return ProbeResult{OK: true, Message: "account verified"}
+	}
+	msg := strings.TrimSpace(r.Msg)
+	if msg == "" {
+		msg = snippet(body)
+	}
+	probeErr := fmt.Errorf("filehost: %s", msg)
+	if isFileHostQuotaError(probeErr) {
+		return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
+	}
+	if isFileHostAuthError(probeErr) {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
+	return ProbeResult{Message: msg}
+}
+
+// looksLikeBlockPage reports whether an HTTP 401/403 response is a WAF/CDN
+// interstitial (Cloudflare challenge, geo-block, rate limit page) rather than
+// the API itself rejecting the credential. Those block pages return 403 just
+// like a dead key would — treating one as "Rejected" would flip every good key
+// on the node to dead during a Cloudflare episode, so it must classify as
+// undecided instead.
+func looksLikeBlockPage(status int, body []byte) bool {
+	if status != http.StatusUnauthorized && status != http.StatusForbidden {
+		return false
+	}
+	return looksLikeBlockPageText(string(body))
+}
+
+// authVerdict classifies a 401/403 probe response: Rejected when the body is
+// the API's own (non-HTML) answer, undecided when a block page intercepted the
+// request.
+func authVerdict(status int, body []byte) ProbeResult {
+	if looksLikeBlockPage(status, body) {
+		return ProbeResult{Message: fmt.Sprintf("HTTP %d (possible WAF block): %s", status, snippet(body))}
+	}
+	return ProbeResult{Rejected: true, Message: fmt.Sprintf("HTTP %d", status)}
+}
+
+// snippet trims a probe response body down to something safe to show on the
+// admin page (and to classify errors against).
+func snippet(body []byte) string {
+	s := strings.TrimSpace(string(body))
+	s = strings.Join(strings.Fields(s), " ")
+	if len(s) > 160 {
+		s = s[:160] + "…"
+	}
+	return s
+}

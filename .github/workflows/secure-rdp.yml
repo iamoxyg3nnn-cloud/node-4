@@ -1,0 +1,264 @@
+name: Secure RDP
+run-name: Secure RDP${{ github.event.inputs.triggered_by == 'workflow-watchman' && ' (watchman)' || '' }}
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      triggered_by:
+        description: 'Source of the trigger'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  actions: write
+
+# One long-running recorder at a time — enforced natively by GitHub Actions
+# via a concurrency group, which is exactly the "don't let another workflow run
+# until the 1st one is done" contract:
+#
+#   concurrency:
+#     group: secure-rdp
+#     cancel-in-progress: false
+#
+# A new run of this workflow waits in the concurrency queue until the previous
+# run of the same repo has COMPLETED, then starts. It never starts on top of a
+# live session, and the live session is never cancelled by the group (we do NOT
+# set cancel-in-progress: true, which would kill the recording mid-stream the
+# moment a newer run is triggered — the active recorder must keep running; only
+# queued extras would vanish). The Init self-cancel check and the keep-alive run
+# arbiter are kept as in-session backstops regardless.
+concurrency:
+  group: secure-rdp
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  # Every action in this workflow now runs on Node 24 (checkout v5+,
+  # setup-go v6+, cache/restore+save v5+, upload-artifact v6+ — v4/v5 of the
+  # first three are still node20 and produced the "deprecated Node.js actions"
+  # warning on every run). The ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION escape
+  # hatch is therefore gone: keeping it would keep the runner loading a Node 20
+  # runtime that GitHub has already removed from the image.
+  #
+  # Session budget — consumed by the Init step below and by keep-alive.ps1,
+  # which documents the arithmetic. GitHub hard-stops a job at 6h and DROPS ITS
+  # LOG when it does, so the whole session has to finish comfortably before
+  # that: window + reserve = 348m lifetime, with a 355m job timeout as the
+  # clean-cancel backstop (an overrun under our own timeout keeps its log).
+  SESSION_WINDOW_MIN: '340'
+  SESSION_RESERVE_MIN: '8'
+  SESSION_RUN_MAX_MIN: '355'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    # Backstop, deliberately UNDER GitHub's 360-minute job cap: when the platform
+    # cap is hit the runner is reclaimed mid-step, which skips every
+    # `if: always()` step AND loses the job log (BlobNotFound), leaving a dead
+    # session with nothing to diagnose. Timing out under our own control cancels
+    # the job cleanly and keeps the log.
+    timeout-minutes: 355
+    env:
+      MINI_ENV: ${{ secrets.MINI_ENV }}
+      TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+      CHANNEL_POOL_MODE: ${{ vars.CHANNEL_POOL_MODE || secrets.CHANNEL_POOL_MODE }}
+      NODE_ID: ${{ vars.NODE_ID || secrets.NODE_ID }}
+      SESSION_DURATION: ${{ secrets.SESSION_DURATION }}
+      # Never force-stop channels before the session duration elapses, even if
+      # the upload backlog can't finish before the run deadline.  Disables the
+      # early-final-drain heuristic that previously cut sessions short (the
+      # ~3h-into-a-5h20m-session pattern).  Backlog is drained at the natural
+      # session boundary instead.
+      DISABLE_EARLY_DRAIN: 'true'
+      # Defer videos shorter than this (seconds) for merging instead of uploading
+      # them. Mirrors the per-channel min_duration_before_upload=1200 in the pool
+      # so the watcher/orphan/pending-flush paths (global-only) never upload shorts.
+      MIN_DURATION_BEFORE_UPLOAD: '1200'
+      VIDHIDE_API_KEY: ${{ secrets.VIDHIDE_API_KEY }}
+      STREAMWISH_API_KEY: ${{ secrets.STREAMWISH_API_KEY }}
+      UPNSHARE_KEY: ${{ secrets.UPNSHARE_KEY }}
+      DOODSTREAM_API_KEY: ${{ secrets.DOODSTREAM_API_KEY }}
+      VOESX_API_KEY: ${{ secrets.VOESX_API_KEY }}
+      # Streamtape needs both halves of the account. Without these the node
+      # keeps whatever stale pair is baked into the MINI_ENV blob.
+      STREAMTAPE_LOGIN: ${{ secrets.STREAMTAPE_LOGIN }}
+      STREAMTAPE_KEY: ${{ secrets.STREAMTAPE_KEY }}
+      VIDARA_API_KEY: ${{ secrets.VIDARA_API_KEY }}
+      LULUSTREAM_KEY: ${{ secrets.LULUSTREAM_KEY }}
+      AFFILIATE_WM: ${{ secrets.AFFILIATE_WM }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_API_KEY: ${{ secrets.SUPABASE_API_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      # Route Catbox image uploads through the Cloudflare Worker proxy. Without
+      # this the nodes hit Catbox directly from datacenter/VPS IPs and get
+      # HTTP 412 "Invalid uploader" blocks (the whole reason the proxy exists).
+      CATBOX_PROXY_URL: ${{ secrets.CATBOX_PROXY_URL }}
+      CATBOX_USERHASH: ${{ secrets.CATBOX_USERHASH }}
+      IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
+      IMGCHEST_TOKEN: ${{ secrets.IMGCHEST_TOKEN }}
+      IMGPILE_KEY: ${{ secrets.IMGPILE_KEY }}
+      # Comma-separated upload hosts to never attempt this run (backed by the
+      # DISABLED_UPLOAD_HOSTS deadlist feature in main.go).
+      DISABLED_UPLOAD_HOSTS: ${{ secrets.DISABLED_UPLOAD_HOSTS }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Kill stale processes + export runner paths used by the cache/tooling steps.
+      - name: Init
+        shell: powershell
+        run: |
+          Get-Process chaturbate-dvr,cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          echo "USERPROFILE=$env:USERPROFILE" >> $env:GITHUB_ENV
+          echo "HOME=$env:USERPROFILE" >> $env:GITHUB_ENV
+          $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
+          echo "REPO_DIR=D:\repos\$repoName" >> $env:GITHUB_ENV
+          Remove-Item "D:\repos\$repoName\tunnel-url.txt" -Force -ErrorAction SilentlyContinue
+          echo "START_TIME=$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())" >> $env:GITHUB_ENV
+          # Self-cancel instead of queuing: if another run may still be
+          # recording, cancel THIS run and exit. The test is SESSION_RUN_MAX_MIN
+          # (the other job's own timeout, not just the keep-alive window): a live
+          # session spends its last ~20 minutes draining uploads past the window,
+          # so a window-sized test said "that run can't be recording" while it
+          # still was — and the new run started on top of it, recording the same
+          # channels twice until the older run's arbiter cancelled the duplicate.
+          $runMaxMin = if ($env:SESSION_RUN_MAX_MIN) { [int]$env:SESSION_RUN_MAX_MIN } else { 355 }
+          $r = gh run list --workflow secure-rdp.yml --repo "$env:GITHUB_REPOSITORY" --limit 10 --json databaseId,status,startedAt 2>$null | ConvertFrom-Json
+          if ($r) { foreach ($run in $r) { if ($run.databaseId -ne $env:GITHUB_RUN_ID -and $run.status -eq 'in_progress' -and (([DateTime]::UtcNow - [DateTime]::Parse($run.startedAt).ToUniversalTime()).TotalMinutes -lt $runMaxMin)) { gh run cancel $env:GITHUB_RUN_ID --repo "$env:GITHUB_REPOSITORY"; Start-Sleep -Seconds 60; exit 1 } } }
+          # A run waiting in the runner queue can NEVER self-cancel (its steps
+          # don't execute). Since THIS run has a runner, cancel any queued
+          # runs of the same workflow so the account's concurrent-job slot is
+          # freed immediately instead of holding a dead run for hours.
+          $q = gh run list --workflow secure-rdp.yml --repo "$env:GITHUB_REPOSITORY" --limit 10 --json databaseId,status 2>$null | ConvertFrom-Json
+          if ($q) { foreach ($run in $q) { if ($run.databaseId -ne $env:GITHUB_RUN_ID -and $run.status -eq 'queued') { Write-Host "Cancelling queued run $($run.databaseId)"; gh run cancel $run.databaseId --repo "$env:GITHUB_REPOSITORY" 2>$null } } }
+
+      # ── Caches: restore everything, save everything ──────────────────────────
+      # Go modules + build cache are handled by setup-go below (cache: true).
+      - name: Restore tools cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ${{ env.USERPROFILE }}\AppData\Local\pip\Cache
+            ${{ env.USERPROFILE }}\AppData\Local\ms-playwright
+            ${{ env.USERPROFILE }}\.cache\tailscale.msi
+            C:\ProgramData\chocolatey\cache
+            C:\ProgramData\chocolatey\lib\ffmpeg
+            C:\ProgramData\chocolatey\bin\ffmpeg.exe
+            C:\ProgramData\chocolatey\bin\ffprobe.exe
+            C:\cloudflared
+            C:\Program Files\Tailscale
+            C:\chrome146
+            D:\ffmpeg
+          key: tools-${{ hashFiles('go.mod', 'requirements.txt') }}
+          restore-keys: |
+            tools-
+
+      # ── DVR binary: NEVER cached ────────────────────────────────────────
+      # We deliberately do NOT restore/save the built chaturbate-dvr.exe. Caching
+      # it let the fleet run stale binaries (assignment/recording fixes never
+      # reached the nodes). parallel-setup.ps1 now ALWAYS builds from current
+      # source, so every run ships a fresh binary.
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      # RDP + Tailscale + FFmpeg + Go build + cloudflared all run concurrently
+      # inside parallel-setup.ps1 (Start-Job per task), so wall-clock setup is
+      # bounded by the slowest task instead of the sum.
+      - name: Parallel Setup
+        shell: pwsh
+        run: pwsh ./scripts/parallel-setup.ps1
+
+      # Save before the 6h keep-alive loop so cancelled runs still persist caches.
+      - name: Save tools cache
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ${{ env.USERPROFILE }}\AppData\Local\pip\Cache
+            ${{ env.USERPROFILE }}\AppData\Local\ms-playwright
+            ${{ env.USERPROFILE }}\.cache\tailscale.msi
+            C:\ProgramData\chocolatey\cache
+            C:\ProgramData\chocolatey\lib\ffmpeg
+            C:\ProgramData\chocolatey\bin\ffmpeg.exe
+            C:\ProgramData\chocolatey\bin\ffprobe.exe
+            C:\cloudflared
+            C:\Program Files\Tailscale
+            C:\chrome146
+            D:\ffmpeg
+          key: tools-${{ github.run_id }}-${{ hashFiles('go.mod', 'requirements.txt') }}
+
+      # (DVR binary is no longer cached — parallel-setup.ps1 builds it fresh
+      # every run, so there is no save step.)
+
+      # DNS fix + pip/playwright deps + pinned Chrome 146 run in PARALLEL
+      # background jobs (prepare-cookies.ps1), then cookie_grabber.py mints a
+      # fresh IP-bound cf_clearance before the DVR starts.
+      - name: Prepare cookies (parallel)
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        run: pwsh ./scripts/prepare-cookies.ps1
+
+      # 6h recording loop. Passes cookie-grab bounds so the DVR's own refresh
+      # stays within the same limits as the dedicated prep step. The thumbnail
+      # backfill sweep (previously its own 15-min cron in backfill.yml) runs in
+      # the background of this session via scripts/backfill-sweep.ps1.
+      - name: Keep Runner Alive
+        shell: pwsh
+        env:
+          GRAB_TOTAL_TIMEOUT: '240'
+          SCRAPLING_BUDGET: '120'
+        run: pwsh ./scripts/keep-alive.ps1
+
+      - name: Restore Network for Upload
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "(NET) Restoring Windows Firewall..."
+          Start-Service mpssvc -ErrorAction SilentlyContinue
+          Set-Service mpssvc -StartupType Automatic -ErrorAction SilentlyContinue
+          Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True -ErrorAction SilentlyContinue
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Write-Host "(NET) Restored"
+
+      - name: Upload Tunnel URL
+        if: always() && !cancelled()
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: tunnel-url
+          path: ${{ env.REPO_DIR }}\tunnel-url.txt
+          if-no-files-found: ignore
+
+      - name: Cleanup on Cancel
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "[CLEANUP] Killing DVR and tunnel processes..."
+          Get-Process chaturbate-dvr -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Remove-Item "$env:REPO_DIR\tunnel-url.txt" -Force -ErrorAction SilentlyContinue
+          Write-Host "[CLEANUP] Done"
+
+      # Plan E2 (the node-4 logless-death fix): a job that dies must leave its
+      # DVR logs behind. Placed AFTER Cleanup on Cancel so the dvr process is
+      # already dead and both logs are flushed/closed before upload.
+      - name: Upload DVR log
+        if: always() && !cancelled()
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: dvr-log
+          path: |
+            ${{ env.REPO_DIR }}\dvr-output.log
+            ${{ env.REPO_DIR }}\dvr-err.log
+          if-no-files-found: ignore

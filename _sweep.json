@@ -1,0 +1,488 @@
+{
+  "at": "2026-11-08T05:18:02.922Z",
+  "nodes": [
+    {
+      "node_id": "node-1",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42439622994",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:41.35512+00:00",
+      "web_url": "https://angels-maryland-andrews-messages.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:25.406345+00:00",
+      "updated_at": "2026-11-08T05:17:41.35512+00:00",
+      "session_deadline": "2026-11-08T07:38:41+00:00"
+    },
+    {
+      "node_id": "node-10",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42430989552",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:47.367885+00:00",
+      "web_url": "https://mounted-nails-uncle-devices.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:41.628001+00:00",
+      "updated_at": "2026-11-08T05:17:47.367885+00:00",
+      "session_deadline": "2026-11-08T05:51:17+00:00"
+    },
+    {
+      "node_id": "node-11",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42431106352",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:37.177874+00:00",
+      "web_url": "https://independent-courtesy-comparable-floors.trycloudflare.com",
+      "created_at": "2026-11-01T07:30:16.776779+00:00",
+      "updated_at": "2026-11-08T05:17:37.177874+00:00",
+      "session_deadline": "2026-11-08T05:54:36+00:00"
+    },
+    {
+      "node_id": "node-12",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42432650483",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:48.336049+00:00",
+      "web_url": "https://qualification-isp-korean-net.trycloudflare.com",
+      "created_at": "2026-11-01T07:30:03.525278+00:00",
+      "updated_at": "2026-11-08T05:17:48.336049+00:00",
+      "session_deadline": "2026-11-08T06:10:48+00:00"
+    },
+    {
+      "node_id": "node-13",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42432816588",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:50.627837+00:00",
+      "web_url": "https://work-para-nikon-mens.trycloudflare.com",
+      "created_at": "2026-11-01T07:30:17.010775+00:00",
+      "updated_at": "2026-11-08T05:17:50.627837+00:00",
+      "session_deadline": "2026-11-08T06:12:20+00:00"
+    },
+    {
+      "node_id": "node-14",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42431255033",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:41.643746+00:00",
+      "web_url": "https://bow-legend-mia-tomato.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:52.82954+00:00",
+      "updated_at": "2026-11-08T05:17:41.643746+00:00",
+      "session_deadline": "2026-11-08T05:58:41+00:00"
+    },
+    {
+      "node_id": "node-15",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42436044608",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:43.404722+00:00",
+      "web_url": "https://next-mac-attraction-whats.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:50.885956+00:00",
+      "updated_at": "2026-11-08T05:17:43.404722+00:00",
+      "session_deadline": "2026-11-08T07:03:13+00:00"
+    },
+    {
+      "node_id": "node-16",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42431290545",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:42.066751+00:00",
+      "web_url": "https://sequences-headphones-corporations-president.trycloudflare.com",
+      "created_at": "2026-11-01T07:30:29.669288+00:00",
+      "updated_at": "2026-11-08T05:17:42.066751+00:00",
+      "session_deadline": "2026-11-08T05:56:11+00:00"
+    },
+    {
+      "node_id": "node-17",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42432892989",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:28.12102+00:00",
+      "web_url": "https://tractor-hoped-rim-ending.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:48.921807+00:00",
+      "updated_at": "2026-11-08T05:17:28.12102+00:00",
+      "session_deadline": "2026-11-08T06:17:28+00:00"
+    },
+    {
+      "node_id": "node-18",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42431815667",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:48.357041+00:00",
+      "web_url": "https://realistic-disciplines-karma-das.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:46.490922+00:00",
+      "updated_at": "2026-11-08T05:17:48.357041+00:00",
+      "session_deadline": "2026-11-08T06:10:17+00:00"
+    },
+    {
+      "node_id": "node-2",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42431098738",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:45.173356+00:00",
+      "web_url": "https://geneva-parliamentary-previous-heather.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:56.747446+00:00",
+      "updated_at": "2026-11-08T05:17:45.173356+00:00",
+      "session_deadline": "2026-11-08T05:41:44+00:00"
+    },
+    {
+      "node_id": "node-3",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42431595366",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:29.648347+00:00",
+      "web_url": "https://vehicles-hey-pricing-cotton.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:34.466892+00:00",
+      "updated_at": "2026-11-08T05:17:29.648347+00:00",
+      "session_deadline": "2026-11-08T05:50:59+00:00"
+    },
+    {
+      "node_id": "node-4",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42426345298",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 5,
+      "last_heartbeat": "2026-11-08T05:17:52.42024+00:00",
+      "web_url": "https://tank-screens-configuration-searches.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:25.853501+00:00",
+      "updated_at": "2026-11-08T05:17:52.42024+00:00",
+      "session_deadline": "2026-11-08T04:39:52+00:00"
+    },
+    {
+      "node_id": "node-5",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42435358326",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:28.133087+00:00",
+      "web_url": "https://unit-pollution-scanning-kenneth.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:47.157414+00:00",
+      "updated_at": "2026-11-08T05:17:28.133087+00:00",
+      "session_deadline": "2026-11-08T06:41:58+00:00"
+    },
+    {
+      "node_id": "node-6",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42434938903",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:29.737565+00:00",
+      "web_url": "https://pour-objectives-edited-ranking.trycloudflare.com",
+      "created_at": "2026-11-01T07:30:05.582172+00:00",
+      "updated_at": "2026-11-08T05:17:29.737565+00:00",
+      "session_deadline": "2026-11-08T06:36:29+00:00"
+    },
+    {
+      "node_id": "node-7",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42437418681",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:34.926848+00:00",
+      "web_url": "https://undergraduate-electronics-mountain-sean.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:43.226607+00:00",
+      "updated_at": "2026-11-08T05:17:34.926848+00:00",
+      "session_deadline": "2026-11-08T07:13:34+00:00"
+    },
+    {
+      "node_id": "node-8",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42435497794",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:36.764464+00:00",
+      "web_url": "https://joy-textile-seminar-utilization.trycloudflare.com",
+      "created_at": "2026-11-01T07:29:57.580395+00:00",
+      "updated_at": "2026-11-08T05:17:36.764464+00:00",
+      "session_deadline": "2026-11-08T06:46:36+00:00"
+    },
+    {
+      "node_id": "node-9",
+      "hostname": "runnervmm7ud1",
+      "instance_label": "42436010845",
+      "software_version": "dev",
+      "status": "online",
+      "current_load": 16,
+      "last_heartbeat": "2026-11-08T05:17:41.89214+00:00",
+      "web_url": "https://quiet-canberra-diff-pricing.trycloudflare.com",
+      "created_at": "2026-11-01T07:26:39.066073+00:00",
+      "updated_at": "2026-11-08T05:17:41.89214+00:00",
+      "session_deadline": "2026-11-08T06:54:41+00:00"
+    }
+  ],
+  "tunnels": [],
+  "sessions": [],
+  "probeResults": {
+    "node-10": {
+      "url": "https://mounted-nails-uncle-devices.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1288,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-12": {
+      "url": "https://qualification-isp-korean-net.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1389,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-13": {
+      "url": "https://work-para-nikon-mens.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1396,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-1": {
+      "url": "https://angels-maryland-andrews-messages.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1499,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-11": {
+      "url": "https://independent-courtesy-comparable-floors.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1495,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-14": {
+      "url": "https://bow-legend-mia-tomato.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1920,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-15": {
+      "url": "https://next-mac-attraction-whats.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1434,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-17": {
+      "url": "https://tractor-hoped-rim-ending.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1431,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-16": {
+      "url": "https://sequences-headphones-corporations-president.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1536,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-18": {
+      "url": "https://realistic-disciplines-karma-das.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1533,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-3": {
+      "url": "https://vehicles-hey-pricing-cotton.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1647,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-2": {
+      "url": "https://geneva-parliamentary-previous-heather.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1650,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-4": {
+      "url": "https://tank-screens-configuration-searches.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1266,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-5": {
+      "url": "https://unit-pollution-scanning-kenneth.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1265,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-8": {
+      "url": "https://joy-textile-seminar-utilization.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1463,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-6": {
+      "url": "https://pour-objectives-edited-ranking.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1481,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-9": {
+      "url": "https://quiet-canberra-diff-pricing.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 1588,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    },
+    "node-7": {
+      "url": "https://undergraduate-electronics-mountain-sean.trycloudflare.com",
+      "health": {
+        "ok": false,
+        "status": 503,
+        "ms": 2005,
+        "body": "{\"ok\":false,\"supabase\":\"ok\",\"link_write_path\":{\"state\":\"failing\",\"detail\":\"upload_links insert rejected: HTTP 409: {\\\"code\\\":\\\"23503\\\",\\\"details\\\":\\\"Key (recording_id)=(00000000-0000-0000-0000-000000000000) is not present in table \\\\\\\"recordings\\\\\\\".\\\",\\\"hint\\\":null,\\\"message\\\":\\\"insert or update on table \\\\\\\"upload_links\\\\\\\" violates foreign key constraint \\\\\\\"upload_links_recording_id_fkey\\\\\\\"\\\""
+      }
+    }
+  },
+  "problems": {
+    "node-10": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "2 persisted errors in 24h",
+      "2 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-12": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "3 persisted errors in 24h",
+      "1 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-13": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "3 persisted errors in 24h"
+    ],
+    "node-1": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "3 persisted errors in 24h",
+      "4 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-11": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "53 persisted errors in 24h"
+    ],
+    "node-14": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "2 persisted errors in 24h"
+    ],
+    "node-15": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "1 persisted errors in 24h",
+      "2 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-17": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "2 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-16": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "4 persisted errors in 24h",
+      "1 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-18": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "4 persisted errors in 24h",
+      "1 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-3": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "2 persisted errors in 24h"
+    ],
+    "node-2": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url"
+    ],
+    "node-4": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "1 persisted errors in 24h"
+    ],
+    "node-5": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "1 persisted errors in 24h",
+      "1 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-8": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "3 persisted errors in 24h",
+      "1 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-6": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "2 persisted errors in 24h",
+      "1 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-9": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "3 persisted errors in 24h",
+      "1 channels status=recording while is_live=false (stuck recordings)"
+    ],
+    "node-7": [
+      "unreachable HTTP 503 | status=online but tunnel DEAD — stale web_url",
+      "1 persisted errors in 24h"
+    ]
+  }
+}
