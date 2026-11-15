@@ -59,12 +59,19 @@ func notifyUploadHostNeedsKey(host, reason string) {
 	if site != "" {
 		siteLine = fmt.Sprintf("\nGet a new key: %s", site)
 	}
+	// Direct link to THIS node's admin page (the tunnel URL rotates each
+	// session, so resolve it at alert time) — one click to the Upload Keys /
+	// Backoffs panels instead of hunting for the current runner URL.
+	adminLine := ""
+	if tunnel, err := server.LoadCurrentTunnel(); err == nil && tunnel != "" {
+		adminLine = fmt.Sprintf("\nAdmin page (paste a new key here): %s/admin", strings.TrimSuffix(tunnel, "/"))
+	}
 	msg := fmt.Sprintf(
 		"The account behind %s can no longer accept uploads.\n"+
-			"Reason: %s\n%s\n\n"+
+			"Reason: %s\n%s%s\n\n"+
 			"The host has been disabled fleet-wide for %v (auto re-enables after that, or on the next session restart).\n"+
-			"To restore sooner: add a new %s API key, then clear its upload_host_backoffs row.",
-		host, reason, siteLine, uploader.AccountDisabledCooldown(), host,
+			"To restore: paste a new %s API key in the admin page's Upload Keys panel — or tell the operator to clear its upload_host_backoffs row.",
+		host, reason, siteLine, adminLine, uploader.AccountDisabledCooldown(), host,
 	)
 	notifier.Notify(notifier.KeyHostNeedsKey(host), title, msg)
 	log.Printf("[host-alert] reported %s needs a new key (%s)", host, reason)
