@@ -28,6 +28,7 @@ import (
 	"github.com/teacat/chaturbate-dvr/internal"
 	"github.com/teacat/chaturbate-dvr/server"
 	"github.com/teacat/chaturbate-dvr/site"
+	"github.com/teacat/chaturbate-dvr/uploader"
 	"github.com/teacat/chaturbate-dvr/uploadkeys"
 )
 
@@ -170,6 +171,10 @@ type HostBackoffView struct {
 	Remaining  string // compact time left, e.g. "18h24m"
 	Reason     string // the host's own wording
 	ReportedBy string // node that discovered it
+	// Website is the host's sign-up/dashboard URL — when the backoff is a
+	// full-storage or banned-account disable, the fix is a new key from that
+	// site, so the admin panel links straight to it.
+	Website string
 }
 
 // formatBackoffRemaining renders a backoff's remaining time compactly
@@ -224,6 +229,7 @@ func loadHostBackoffs() []HostBackoffView {
 			Remaining:  formatBackoffRemaining(until.Sub(now)),
 			Reason:     r.Reason,
 			ReportedBy: r.UpdatedBy,
+			Website:    uploader.HostWebsite(r.Host),
 		})
 	}
 	sort.Slice(views, func(i, j int) bool { return views[i].Host < views[j].Host })

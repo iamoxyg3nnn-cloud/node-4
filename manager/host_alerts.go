@@ -52,12 +52,19 @@ func notifyUploadHostNeedsKey(host, reason string) {
 	}
 
 	title := fmt.Sprintf("🔑 Upload host needs a new key — %s", host)
+	// Direct link to the host's sign-up/dashboard page so the operator can
+	// grab a replacement key without hunting for the site.
+	site := uploader.HostWebsite(host)
+	siteLine := ""
+	if site != "" {
+		siteLine = fmt.Sprintf("\nGet a new key: %s", site)
+	}
 	msg := fmt.Sprintf(
 		"The account behind %s can no longer accept uploads.\n"+
-			"Reason: %s\n\n"+
+			"Reason: %s\n%s\n\n"+
 			"The host has been disabled fleet-wide for %v (auto re-enables after that, or on the next session restart).\n"+
 			"To restore sooner: add a new %s API key, then clear its upload_host_backoffs row.",
-		host, reason, uploader.AccountDisabledCooldown(), host,
+		host, reason, siteLine, uploader.AccountDisabledCooldown(), host,
 	)
 	notifier.Notify(notifier.KeyHostNeedsKey(host), title, msg)
 	log.Printf("[host-alert] reported %s needs a new key (%s)", host, reason)

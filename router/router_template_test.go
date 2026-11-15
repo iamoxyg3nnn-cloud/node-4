@@ -130,7 +130,7 @@ func TestAdminTemplateRendersUploadKeysPanel(t *testing.T) {
 		Uploads: &entity.UploadsResponse{},
 		UploadKeys: []uploadkeys.HostView{
 			{
-				Host: "VoeSX", Label: "VOE.sx", Probeable: true, Fields: []string{"key"},
+				Host: "VoeSX", Label: "VOE.sx", Probeable: true, Fields: []string{"key"}, Website: "https://voe.sx",
 				Keys: []uploadkeys.KeyView{
 					{Fingerprint: "fp-dead-0001", Display: "••••wxyz", Status: "dead", Message: "authentication rejected"},
 					{Fingerprint: "fp-new-0002", Display: "••••abcd", Status: "untested"},
@@ -165,6 +165,9 @@ func TestAdminTemplateRendersUploadKeysPanel(t *testing.T) {
 		`data-field="token"`,
 		`data-act="probe-all"`,
 		`—`, // zero LastChecked renders as an em dash via timefmt
+		// direct-to-site link on the host head, for grabbing a replacement key
+		`<a class="uk-site" href="https://voe.sx" target="_blank"`,
+		// a host WITHOUT a known site must not render a broken empty link
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered admin page missing %q", want)

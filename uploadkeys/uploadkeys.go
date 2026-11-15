@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/teacat/chaturbate-dvr/server"
+	"github.com/teacat/chaturbate-dvr/uploader"
 )
 
 // app_settings keys for the central blobs.
@@ -101,6 +102,9 @@ type KeyView struct {
 type HostView struct {
 	Host      string    `json:"host"`
 	Label     string    `json:"label"`
+	// Website is the host's sign-up/dashboard URL, rendered as a link on the
+	// admin page so a dead key can be replaced without hunting for the site.
+	Website   string    `json:"website"`
 	Probeable bool      `json:"probeable"`
 	Fields    []string  `json:"fields"`
 	Keys      []KeyView `json:"keys"`
@@ -573,6 +577,7 @@ func Snapshot() []HostView {
 		hv := HostView{
 			Host:      h.name,
 			Label:     h.label,
+			Website:   uploader.HostWebsite(h.name),
 			Probeable: h.probeable,
 			Fields:    h.fields,
 			Keys:      []KeyView{},
