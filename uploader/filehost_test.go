@@ -16,6 +16,7 @@ func TestFileHostCodeExtraction(t *testing.T) {
 	}{
 		{"abc1234", "abc1234"},
 		{"https://filehost.net/abc1234", "abc1234"},
+		{"https://filehost.net/v/abc1234", "abc1234"},
 		{"https://filehost.net/e/abc1234", "abc1234"},
 		{"https://filehost.net/abc1234?autoplay=1", "abc1234"},
 		{"", ""},
@@ -97,7 +98,7 @@ func TestFileHostUploadSuccess(t *testing.T) {
 	if !uploadServerCalled {
 		t.Error("upload server endpoint was not called")
 	}
-	want := fileHostViewBase + "/abc1234"
+	want := fileHostViewBase + "/v/abc1234"
 	if link != want {
 		t.Errorf("got link %q, want %q", link, want)
 	}

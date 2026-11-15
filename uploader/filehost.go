@@ -333,5 +333,7 @@ func (u *FileHostUploader) uploadFile(filePath, key string, progress ProgressFun
 		return "", fmt.Errorf("upload failed: status %d (msg: %s)", uploadResp.Status, msg)
 	}
 
-	return fileHostViewBase + "/" + code, nil
+	// The site's canonical view URL is /v/<code> (the bare /<code> form 404s
+	// since FileHost changed their routing — verified live 2026-11-15).
+	return fileHostViewBase + "/v/" + code, nil
 }
