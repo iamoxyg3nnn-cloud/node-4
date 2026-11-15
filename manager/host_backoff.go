@@ -32,6 +32,10 @@ func startHostBackoffSync() {
 	// Install the report sink before the first upload can run.
 	uploader.SetPublishHostBackoff(PublishFleetHostBackoff)
 
+	// Account-level disables (storage full / banned / suspended) additionally
+	// alert the operator that the host needs a new key.
+	uploader.SetAccountDisabledNotifier(notifyUploadHostNeedsKey)
+
 	// Initial read before the first sweep, so a node joining the fleet does not
 	// pay the discovery request itself.
 	RefreshFleetHostBackoffs()

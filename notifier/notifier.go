@@ -2,6 +2,7 @@ package notifier
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,13 @@ const (
 	// no recording can be marked as uploaded at all (see server/write_path_check.go).
 	KeyUploadLinkWriteFailure = "upload_link_write_failure"
 )
+
+// KeyHostNeedsKey builds the cooldown key for upload-host account-level
+// alerts (storage full / banned / suspended).  Per-host so one host's outage
+// never suppresses another host's alert.
+func KeyHostNeedsKey(host string) string {
+	return "host_needs_key:" + strings.ToLower(host)
+}
 
 // Default is the package-level notifier singleton.
 var Default = &Notifier{

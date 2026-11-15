@@ -1,0 +1,39 @@
+# ci.yml — fast compile + unit-test gate on every push.
+#
+# Why this exists: the recording nodes (secure-rdp.yml) only compile at session
+# start, on a 6-hour rotation.  A build error pushed here would silently break
+# every node at its next rotation, 15 repos at a time, before anyone notices.
+# This workflow runs on the push itself (ubuntu, ~1-2 min) so the mistake is
+# caught while the commit is still on the desk.
+#
+# Scope: go build ./... plus the unit-test packages that don't need secrets or
+# network (uploader / manager / notifier / database).  The full `go test ./...`
+# is intentionally NOT run here — several packages expect live services.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Unit tests (no live services)
+        run: go test ./uploader/ ./manager/ ./notifier/ ./database/ ./config/ ./uploadkeys/ -count=1

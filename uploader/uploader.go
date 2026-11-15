@@ -727,8 +727,9 @@ func (m *MultiHostUploader) UploadSelectedWithCallback(filePath string, hosts []
 			}
 			if err != nil {
 				m.log.Error("upload: %s failed for %s: %v", host, filePath, err)
-				if isVoeStorageFull(err) {
-					m.log.Error("upload: %s reported storage full — disabling it for the rest of this run", host)
+				if isAccountDisabledError(err) {
+					m.log.Error("upload: %s account can't accept uploads (storage full / banned / suspended) — disabling fleet-wide for %v and alerting the operator", host, accountDisabledCooldown)
+					disableHostAccountLevel(host, err.Error())
 					m.DisableHost(host)
 				} else if isKeysExhausted(err) {
 					m.log.Error("upload: %s has no working keys left — skipping it for %s (auto re-enables; rotate its keys to restore)", host, keysExhaustedCooldown)
@@ -737,6 +738,13 @@ func (m *MultiHostUploader) UploadSelectedWithCallback(filePath string, hosts []
 				} else if isUploadAuthError(err) {
 					m.log.Error("upload: %s rejected our credentials — disabling it for the rest of this run", host)
 					m.DisableHost(host)
+					// A dead/banned key only gets fixed by the operator, so
+					// piggyback the new-key alert on the same dedup machinery.
+					// (Fleet-cache check first: a peer that already took the
+					// host fleet-wide owns the incident.)
+					if !isFleetHostBackedOff(host) {
+						notifyAccountDisabled(host, "credentials rejected: "+firstLine(err.Error()))
+					}
 				} else if isHostDead(err) {
 					m.log.Error("upload: %s is permanently unreachable — disabling it for the rest of this run", host)
 					m.DisableHost(host)
@@ -814,8 +822,9 @@ func (m *MultiHostUploader) UploadSelectedPriority(filePath string, hosts []stri
 		results = append(results, UploadResult{Host: host, DownloadLink: link, Error: err})
 		if err != nil {
 			m.log.Error("upload: %s (priority) failed for %s: %v", host, filePath, err)
-			if isVoeStorageFull(err) {
-				m.log.Error("upload: %s reported storage full — disabling it for the rest of this run", host)
+			if isAccountDisabledError(err) {
+				m.log.Error("upload: %s account can't accept uploads (storage full / banned / suspended) — disabling fleet-wide for %v and alerting the operator", host, accountDisabledCooldown)
+				disableHostAccountLevel(host, err.Error())
 				m.DisableHost(host)
 			} else if isKeysExhausted(err) {
 				m.log.Error("upload: %s has no working keys left — skipping it for %s (auto re-enables; rotate its keys to restore)", host, keysExhaustedCooldown)
@@ -824,6 +833,13 @@ func (m *MultiHostUploader) UploadSelectedPriority(filePath string, hosts []stri
 			} else if isUploadAuthError(err) {
 				m.log.Error("upload: %s rejected our credentials — disabling it for the rest of this run", host)
 				m.DisableHost(host)
+				// A dead/banned key only gets fixed by the operator, so
+				// piggyback the new-key alert on the same dedup machinery.
+				// (Fleet-cache check first: a peer that already took the
+				// host fleet-wide owns the incident.)
+				if !isFleetHostBackedOff(host) {
+					notifyAccountDisabled(host, "credentials rejected: "+firstLine(err.Error()))
+				}
 			} else if isHostDead(err) {
 				m.log.Error("upload: %s is permanently unreachable — disabling it for the rest of this run", host)
 				m.DisableHost(host)
