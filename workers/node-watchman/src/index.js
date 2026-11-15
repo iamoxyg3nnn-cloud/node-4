@@ -1,7 +1,7 @@
 /**
  * node-watchman — Cloudflare Worker
  * ---------------------------------------
- * Monitors GitHub Actions workflows across node-1..node-7 repos and
+ * Monitors GitHub Actions workflows across node-1..node-15 repos and
  * Supabase-Actions. Restarts any workflow that has been inactive/dead longer
  * than its grace period.
  *
@@ -9,7 +9,7 @@
  * fleet keeps its own cron/token/dashboard and no other worker is disturbed.
  *
  * Repo-specific behaviour:
- *   - node-1..node-7 (secure-rdp.yml):  20 min grace,  8 restarts / 24h max
+ *   - node-1..node-15 (secure-rdp.yml):  20 min grace,  8 restarts / 24h max
  *     (checked every 5th minute — long grace, no need for fast polls)
  *   - Supabase-Actions (supabase-host.yml): 1 min grace — 24/7 session chaining
  *     (fast-polled EVERY minute so the handoff gap stays ~1-2 min)
@@ -27,6 +27,14 @@ const REPO_CONFIGS = [
   { repo: "node-5",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
   { repo: "node-6",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
   { repo: "node-7",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
+  { repo: "node-8",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
+  { repo: "node-9",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
+  { repo: "node-10",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
+  { repo: "node-11",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
+  { repo: "node-12",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
+  { repo: "node-13",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
+  { repo: "node-14",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
+  { repo: "node-15",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
 
   // Supabase-Actions — 24/7 self-hosted Supabase. Sessions run ~5h05m then stop;
   // restart the moment one completes so the stack is up around the clock.
