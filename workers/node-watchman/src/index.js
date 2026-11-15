@@ -1,21 +1,21 @@
 /**
  * node-watchman — Cloudflare Worker
  * ---------------------------------------
- * Monitors GitHub Actions workflows across node-1..node-18 repos and
- * supabase-actions. Restarts any workflow that has been inactive/dead longer
+ * Monitors GitHub Actions workflows across node-1..node-7 repos and
+ * Supabase-Actions. Restarts any workflow that has been inactive/dead longer
  * than its grace period.
  *
  * Standalone worker: deliberately separate from workflow-watchman so the node
  * fleet keeps its own cron/token/dashboard and no other worker is disturbed.
  *
  * Repo-specific behaviour:
- *   - node-1..node-18 (secure-rdp.yml):  20 min grace,  8 restarts / 24h max
+ *   - node-1..node-7 (secure-rdp.yml):  20 min grace,  8 restarts / 24h max
  *     (checked every 5th minute — long grace, no need for fast polls)
- *   - supabase-actions (supabase-host.yml): 1 min grace — 24/7 session chaining
+ *   - Supabase-Actions (supabase-host.yml): 1 min grace — 24/7 session chaining
  *     (fast-polled EVERY minute so the handoff gap stays ~1-2 min)
  */
 
-const OWNER = "lawdachuss";
+const OWNER = "vxillannnnnn-hub";
 
 // ===== Per-repo configuration ================================================
 const REPO_CONFIGS = [
@@ -27,19 +27,8 @@ const REPO_CONFIGS = [
   { repo: "node-5",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
   { repo: "node-6",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
   { repo: "node-7",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-8",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-9",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-10",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-11",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-12",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-13",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-14",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-15",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-16",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-17",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-18",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
 
-  // supabase-actions — 24/7 self-hosted Supabase. Sessions run ~5h05m then stop;
+  // Supabase-Actions — 24/7 self-hosted Supabase. Sessions run ~5h05m then stop;
   // restart the moment one completes so the stack is up around the clock.
   // Short grace = fast handoff. The repo's own 6-hour schedule still runs as a
   // no-cancel fallback (it queues behind the active session instead of killing it).
@@ -47,7 +36,7 @@ const REPO_CONFIGS = [
   // throttleMax 12: normal 24/7 chaining needs ~4-5 sessions/day; the headroom
   // covers a rapid-fail loop (schedule + watchman double-triggering) without the
   // watchman going silent for 24h.
-  { repo: "supabase-actions", workflow: "supabase-host.yml", branch: "master", graceMs: 60 * 1000, throttleMax: 12, fastPoll: true },
+  { repo: "Supabase-Actions", workflow: "supabase-host.yml", branch: "master", graceMs: 60 * 1000, throttleMax: 12, fastPoll: true },
 ];
 
 const THROTTLE_WINDOW = 24 * 60 * 60 * 1000; // 24 hours

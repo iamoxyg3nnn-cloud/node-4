@@ -13,7 +13,7 @@ binding = "BROWSER"
 # the next scan can skip the anti-bot challenge faster and hit fewer rate limits.
 [[kv_namespaces]]
 binding = "AUTOPILOT"
-id = "6267b96f4531434ab3eb6c246e025bab"
+id = "dfd67f75788e4e019a49db6da2d47259"
 
 # Plaintext vars — safe to commit. Fill in SUPABASE_URL for your project.
 [vars]
