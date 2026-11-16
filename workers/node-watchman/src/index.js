@@ -36,15 +36,20 @@ const REPO_CONFIGS = [
   { repo: "node-14",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
   { repo: "node-15",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
 
-  // Supabase-Actions — 24/7 self-hosted Supabase. Sessions run ~5h05m then stop;
-  // restart the moment one completes so the stack is up around the clock.
-  // Short grace = fast handoff. The repo's own 6-hour schedule still runs as a
-  // no-cancel fallback (it queues behind the active session instead of killing it).
-  // fastPoll: true = checked on EVERY cron tick (1 min) so the dead gap is ~1-2 min.
-  // throttleMax 12: normal 24/7 chaining needs ~4-5 sessions/day; the headroom
-  // covers a rapid-fail loop (schedule + watchman double-triggering) without the
-  // watchman going silent for 24h.
-  { repo: "Supabase-Actions", workflow: "supabase-host.yml", branch: "master", graceMs: 60 * 1000, throttleMax: 12, fastPoll: true },
+  // Supabase-Actions — 24/7 self-hosted Supabase.
+  // Sessions run ~5h05m then exit cleanly without internal crons or self-chaining.
+  // node-watchman is the primary intelligent autotrigger.
+  // It checks every 1 min (fastPoll), automatically purges/cancels duplicate queued runs,
+  // and starts the next session 30s after completion with ZERO queue delay.
+  {
+    repo: "Supabase-Actions",
+    workflow: "supabase-host.yml",
+    branch: "master",
+    graceMs: 30 * 1000,
+    maxRunDurationMs: 5.5 * 3600 * 1000,
+    throttleMax: 15,
+    fastPoll: true,
+  },
 ];
 
 const THROTTLE_WINDOW = 24 * 60 * 60 * 1000; // 24 hours
@@ -288,7 +293,7 @@ function renderMetrics(repos) {
 // ===== Core logic ============================================================
 
 async function evaluateRepo(config, headers) {
-  const { repo, workflow, graceMs, throttleMax } = config;
+  const { repo, workflow, graceMs, throttleMax, maxRunDurationMs } = config;
   const resp = await ghFetch(
     `https://api.github.com/repos/${OWNER}/${repo}/actions/workflows/${workflow}/runs?per_page=30`,
     headers
@@ -313,36 +318,87 @@ async function evaluateRepo(config, headers) {
     return state;
   }
 
-  // Active run → no restart needed
-  const activeRun = runs.find(
-    (r) => r.status === "in_progress" || r.status === "queued" || r.status === "pending"
-  );
-  if (activeRun) {
-    state.status = activeRun.status;
-    state.lastRun = activeRun.run_started_at || activeRun.created_at;
-    state.lastConclusion = null;
-    return state;
+  const inProgressRun = runs.find((r) => r.status === "in_progress");
+  const queuedRuns = runs.filter((r) => r.status === "queued" || r.status === "pending");
+
+  // 1. AUTO-SWEEPER: Cancel any duplicate queued runs while an active runner is in progress
+  if (inProgressRun && queuedRuns.length > 0) {
+    for (const q of queuedRuns) {
+      console.log(`[${repo}] Cancelling duplicate queued run ${q.id} while run ${inProgressRun.id} is in progress`);
+      try {
+        await ghFetch(
+          `https://api.github.com/repos/${OWNER}/${repo}/actions/runs/${q.id}/cancel`,
+          headers,
+          { method: "POST" }
+        );
+      } catch (err) {
+        console.error(`[${repo}] Failed to cancel duplicate queued run ${q.id}: ${err.message}`);
+      }
+    }
   }
 
-  // Latest completed run. Age is measured from updated_at (approximately completion
-  // time), not run_started_at - for a 5h30m session those differ by hours, and the
-  // grace window is meant to say "how long since the session ENDED".
-  const latest = runs[0];
-  state.status = latest.status;
-  state.lastRun = latest.run_started_at || latest.created_at;
-  state.lastConclusion = latest.conclusion;
-  const endedAt = new Date(latest.updated_at || latest.created_at).getTime();
-  const age = Number.isFinite(endedAt) ? Date.now() - endedAt : Infinity; // null -> treat as very old
+  // 2. ACTIVE RUN: If a runner is actively running, check its duration
+  if (inProgressRun) {
+    const startedAt = new Date(inProgressRun.run_started_at || inProgressRun.created_at).getTime();
+    const runDuration = Date.now() - startedAt;
+    const maxAllowed = maxRunDurationMs || 6 * 60 * 60 * 1000;
+
+    // Detect frozen/hung runners
+    if (runDuration > maxAllowed) {
+      console.log(`[${repo}] Run ${inProgressRun.id} hung for ${fmtDuration(runDuration)} (> ${fmtDuration(maxAllowed)}), cancelling hung run`);
+      try {
+        await ghFetch(
+          `https://api.github.com/repos/${OWNER}/${repo}/actions/runs/${inProgressRun.id}/cancel`,
+          headers,
+          { method: "POST" }
+        );
+      } catch (err) {
+        console.error(`[${repo}] Error cancelling hung run: ${err.message}`);
+      }
+    } else {
+      state.status = inProgressRun.status;
+      state.lastRun = inProgressRun.run_started_at || inProgressRun.created_at;
+      state.lastConclusion = null;
+      return state;
+    }
+  }
+
+  // 3. STUCK QUEUE PURGE: If no run is in progress, but a run is stuck in queue > 3 minutes
+  if (queuedRuns.length > 0) {
+    const oldest = queuedRuns[0];
+    const queueAge = Date.now() - new Date(oldest.created_at).getTime();
+    if (queueAge > 3 * 60 * 1000) {
+      console.log(`[${repo}] Run ${oldest.id} stuck in queue for ${fmtDuration(queueAge)}, cancelling to re-dispatch cleanly`);
+      try {
+        await ghFetch(
+          `https://api.github.com/repos/${OWNER}/${repo}/actions/runs/${oldest.id}/cancel`,
+          headers,
+          { method: "POST" }
+        );
+      } catch (err) {}
+    } else {
+      // Fresh dispatch (< 3 min ago), let GitHub Actions assign a runner
+      state.status = oldest.status;
+      state.lastRun = oldest.created_at;
+      state.lastConclusion = null;
+      return state;
+    }
+  }
+
+  // 4. LATEST COMPLETED: Evaluate time since last completed run
+  const latestCompleted = runs.find((r) => r.status === "completed") || runs[0];
+  state.status = latestCompleted.status;
+  state.lastRun = latestCompleted.run_started_at || latestCompleted.created_at;
+  state.lastConclusion = latestCompleted.conclusion;
+  const endedAt = new Date(latestCompleted.updated_at || latestCompleted.created_at).getTime();
+  const age = Number.isFinite(endedAt) ? Date.now() - endedAt : Infinity;
 
   // Grace period check
   if (age < graceMs) return state;
 
-  // Throttle check — count completions within the 24h window from fetched runs
+  // Throttle check — count non-cancelled completions within 24h window
   const recentCompletions = runs.filter((r) => {
     if (r.status !== "completed") return false;
-    // GitHub marks cancelled runs as status 'completed' with conclusion 'cancelled'.
-    // Those would silently eat the restart budget (the schedule+watchman handoff
-    // cancels a duplicate queued run almost every cycle) - exclude them.
     if (r.conclusion === "cancelled") return false;
     return new Date(r.created_at).getTime() > Date.now() - THROTTLE_WINDOW;
   });
@@ -356,8 +412,8 @@ async function evaluateRepo(config, headers) {
   // Needs restart
   state.needsRestart = true;
   state.deadDuration = fmtDuration(age);
-  state.reason = latest.conclusion
-    ? `Last run ${latest.conclusion} at ${latest.run_started_at}`
+  state.reason = latestCompleted.conclusion
+    ? `Last run ${latestCompleted.conclusion} at ${latestCompleted.run_started_at || latestCompleted.created_at}`
     : "No recent activity";
   return state;
 }
