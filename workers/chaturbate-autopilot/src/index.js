@@ -11,19 +11,15 @@
  * Supabase `channel_assignments` pool (status = "unassigned").
  * Go DVR nodes claim "unassigned" rows when CHANNEL_POOL_MODE = pooled.
  *
- * Multi-Site Behaviour:
- *   - Chaturbate: female & couple rooms (filtered by min_viewers, default 20k)
- *   - Stripchat: couple category rooms (filtered by min_viewers, default 200)
- *   - Only PUBLIC and live streams qualify.
- *   - Automatic site tagging: `site = 'chaturbate'` or `site = 'stripchat'`.
- *   - Direct fetch is attempted first (free, 0 browser seconds).
- *   - Headless Chromium (Browser Rendering) is used only as fallback if direct
- *     fetch is challenged by Cloudflare anti-bot.
- *   - Strict daily browser budget accounting to never exceed Cloudflare limits.
- *
- * Config (Supabase `app_settings` key `autopilot_config`):
- *   { min_viewers, target_buffer, categories:[{key,label,site,target_buffer,min_viewers}],
- *     stale_minutes, scan_interval_minutes, browser_daily_seconds, browser_min_spacing_seconds }
+ * Smart Edge-Case Defenses:
+ *   - Transient Supabase 530/502 retries with exponential backoff.
+ *   - PostgREST URL length protection via query chunking (max 25 per inList).
+ *   - Double-check deduplication against active pool, catalogue, and blocklist.
+ *   - Zero-cost direct API calls first; Browser Rendering as last-resort fallback.
+ *   - Daily browser budget accountant (480s / 10m limit) + 90s instance spacing guard.
+ *   - Single-flight KV lock to prevent concurrent browser runs.
+ *   - Self-cleaning KV ring buffer for logs (CF_LOG_MAX = 200).
+ *   - 6-hour alert cooldown to prevent Discord spam during upstream outages.
  */
 
 import puppeteer from '@cloudflare/puppeteer';
@@ -42,9 +38,11 @@ const DEFAULT_CONFIG = {
   browser_daily_seconds: 480,
   browser_min_spacing_seconds: 90,
 };
+
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
 const SESSION_TTL = 2_592_000; // 30 days
 const RATE_LIMIT_KEY = 'rate_limited_until';
 const RATE_LIMIT_STREAK_KEY = 'rate_limit_streak';
@@ -67,6 +65,8 @@ const CONFIG_KEY = 'autopilot_config';
 const SCANS_KEY = 'autopilot_scans';
 const HEARTBEAT_KEY = 'autopilot_heartbeat';
 
+const RETRYABLE_HTTP_STATUSES = new Set([502, 503, 504, 520, 521, 522, 524, 530]);
+
 function jsonResponse(obj, status = 200) {
   return new Response(JSON.stringify(obj, null, 2), {
     status,
@@ -74,26 +74,53 @@ function jsonResponse(obj, status = 200) {
   });
 }
 
-// ---- Supabase helpers -------------------------------------------------------
+function chunkArray(arr, size = 25) {
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+// ---- Supabase helpers with transient retry ----------------------------------
 function sbHeaders(env, extra = {}) {
   return {
     apikey: env.SUPABASE_SERVICE_ROLE_KEY,
     Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
     'Content-Type': 'application/json',
+    'User-Agent': env.CB_USER_AGENT || DEFAULT_UA,
     ...extra,
   };
 }
 
+async function sbFetchWithRetry(url, options, maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const resp = await fetch(url, options);
+      if (resp.ok) return resp;
+      if (!RETRYABLE_HTTP_STATUSES.has(resp.status) || attempt === maxAttempts) {
+        return resp;
+      }
+      console.warn(`[supabase] HTTP ${resp.status} on ${url} — retrying (${attempt}/${maxAttempts})...`);
+    } catch (err) {
+      if (attempt === maxAttempts) throw err;
+      console.warn(`[supabase] network error: ${err.message} on ${url} — retrying (${attempt}/${maxAttempts})...`);
+    }
+    await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+  }
+}
+
 async function sbGet(env, path) {
-  const resp = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
-    headers: sbHeaders(env),
-  });
+  const url = `${env.SUPABASE_URL}/rest/v1/${path}`;
+  const resp = await sbFetchWithRetry(url, { headers: sbHeaders(env) });
   if (!resp.ok) throw new Error(`GET ${path} -> HTTP ${resp.status} ${await resp.text()}`);
   return resp.json();
 }
 
 async function sbPost(env, path, body, extra = {}) {
-  const resp = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+  const url = `${env.SUPABASE_URL}/rest/v1/${path}`;
+  const resp = await sbFetchWithRetry(url, {
     method: 'POST',
     headers: sbHeaders(env, extra),
     body: JSON.stringify(body),
@@ -104,7 +131,10 @@ async function sbPost(env, path, body, extra = {}) {
 
 async function sbPostMany(env, path, rows, extra = {}) {
   if (!rows || rows.length === 0) return;
-  await sbPost(env, path, rows, extra);
+  const chunks = chunkArray(rows, 50);
+  for (const chunk of chunks) {
+    await sbPost(env, path, chunk, extra);
+  }
 }
 
 async function getSetting(env, key) {
@@ -143,7 +173,6 @@ function normalizeConfig(raw) {
   if (!Array.isArray(cfg.categories) || cfg.categories.length === 0) {
     cfg.categories = JSON.parse(JSON.stringify(DEFAULT_CONFIG.categories));
   } else {
-    // If stripchat couple is missing from categories, add it automatically
     const hasStripchat = cfg.categories.some((c) => (c.site || '') === 'stripchat');
     if (!hasStripchat) {
       cfg.categories.push({
@@ -178,7 +207,6 @@ async function loadConfig(env) {
   }
 
   const normalized = normalizeConfig(cfg);
-  // If categories was upgraded (e.g. added stripchat), save back to app_settings
   if (!cfg || !cfg.categories || !cfg.categories.some((c) => c.site === 'stripchat')) {
     try {
       await setSetting(env, CONFIG_KEY, normalized);
@@ -202,44 +230,75 @@ async function batchInPool(env, items) {
   }
   const poolSet = new Set();
   for (const [site, usernames] of Object.entries(bySite)) {
-    try {
-      const rows = await sbGet(
-        env,
-        `channel_assignments?username=${inList(usernames)}&site=eq.${site}&select=username,site`
-      );
-      for (const r of rows || []) {
-        poolSet.add(`${r.site || 'chaturbate'}:${r.username.toLowerCase()}`);
-      }
-    } catch (e) {
-      console.error(`batchInPool error for site ${site}:`, e.message);
-    }
+    const chunks = chunkArray(usernames, 25);
+    await Promise.all(
+      chunks.map(async (chunk) => {
+        try {
+          const rows = await sbGet(
+            env,
+            `channel_assignments?username=${inList(chunk)}&site=eq.${site}&select=username,site`
+          );
+          for (const r of rows || []) {
+            if (r.username) {
+              poolSet.add(`${r.site || 'chaturbate'}:${r.username.toLowerCase()}`);
+            }
+          }
+        } catch (e) {
+          console.error(`batchInPool chunk error for site ${site}:`, e.message);
+        }
+      })
+    );
   }
   return poolSet;
 }
 
 async function batchAutoAdded(env, usernames) {
-  if (usernames.length === 0) return new Set();
-  const rows = await sbGet(env, `pool_autopilot?username=${inList(usernames)}&select=username`);
-  return new Set((rows || []).map((r) => r.username.toLowerCase()));
+  if (!usernames || usernames.length === 0) return new Set();
+  const set = new Set();
+  const chunks = chunkArray(usernames, 25);
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      try {
+        const rows = await sbGet(env, `pool_autopilot?username=${inList(chunk)}&select=username`);
+        for (const r of rows || []) {
+          if (r.username) set.add(r.username.toLowerCase());
+        }
+      } catch (e) {
+        console.error('batchAutoAdded chunk error:', e.message);
+      }
+    })
+  );
+  return set;
 }
 
 async function batchInChannels(env, usernames) {
-  if (usernames.length === 0) return new Set();
-  const rows = await sbGet(env, `channels?username=${inList(usernames)}&select=username`);
-  return new Set((rows || []).map((r) => r.username.toLowerCase()));
+  if (!usernames || usernames.length === 0) return new Set();
+  const set = new Set();
+  const chunks = chunkArray(usernames, 25);
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      try {
+        const rows = await sbGet(env, `channels?username=${inList(chunk)}&select=username`);
+        for (const r of rows || []) {
+          if (r.username) set.add(r.username.toLowerCase());
+        }
+      } catch (e) {
+        console.error('batchInChannels chunk error:', e.message);
+      }
+    })
+  );
+  return set;
 }
 
 /**
  * Count unassigned channels in channel_assignments per site & category.
- * Chaturbate categories (female, couple) are resolved via pool_autopilot.
- * Stripchat couples are tagged site=stripchat.
  */
 async function countAutoUnassigned(env) {
   const unassigned = await sbGet(
     env,
-    `channel_assignments?status=eq.unassigned&select=username,site`
+    `channel_assignments?status=eq.unassigned&select=username,site&limit=1000`
   );
-  const autopilot = await sbGet(env, `pool_autopilot?select=username,gender`);
+  const autopilot = await sbGet(env, `pool_autopilot?select=username,gender&limit=1000`);
   const genderByUser = {};
   for (const a of autopilot || []) {
     if (a.username && a.gender) genderByUser[a.username.toLowerCase()] = a.gender;
@@ -307,8 +366,19 @@ async function trimChannelLogs(env) {
 function topRooms(data, minViewers) {
   const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
   return rooms
-    .filter((r) => (r.current_show || r.room_status) === 'public' && (r.num_users ?? 0) >= minViewers)
-    .sort((a, b) => (b.num_users ?? 0) - (a.num_users ?? 0));
+    .filter((r) => {
+      if (!r || !r.username) return false;
+      const status = r.current_show || r.room_status;
+      if (status !== 'public') return false;
+      const users = Number(r.num_users) || 0;
+      return users >= minViewers;
+    })
+    .sort((a, b) => (Number(b.num_users) || 0) - (Number(a.num_users) || 0))
+    .map((r) => ({
+      username: r.username.trim(),
+      num_users: Number(r.num_users) || 0,
+      site: 'chaturbate',
+    }));
 }
 
 function roomListUrl(genderKey, env) {
@@ -366,11 +436,6 @@ async function fetchRoomListDirect(env, genderKey, cached) {
 }
 
 // ---- Stripchat fetch --------------------------------------------------------
-/**
- * Fetches Stripchat couple rooms directly via its front models API.
- * Focuses on top viewers in the couples category with sortBy=stripRanking.
- * Costs 0 browser seconds when direct fetch succeeds.
- */
 async function fetchStripchatCouplesDirect(env, minViewers = 200) {
   try {
     const url = 'https://stripchat.com/api/front/models?limit=60&offset=0&primaryTag=couples&sortBy=stripRanking';
@@ -380,6 +445,7 @@ async function fetchStripchatCouplesDirect(env, minViewers = 200) {
         'User-Agent': env.CB_USER_AGENT || DEFAULT_UA,
         Referer: 'https://stripchat.com/couples',
       },
+      signal: AbortSignal.timeout(10000),
     });
     if (!r.ok) {
       console.warn(`[stripchat] HTTP ${r.status} on direct fetch`);
@@ -388,11 +454,17 @@ async function fetchStripchatCouplesDirect(env, minViewers = 200) {
     const data = await r.json();
     const models = Array.isArray(data?.models) ? data.models : [];
     const qualified = models
-      .filter((m) => m.isLive === true && m.status === 'public' && (m.viewersCount || 0) >= minViewers)
-      .sort((a, b) => (b.viewersCount || 0) - (a.viewersCount || 0))
+      .filter((m) => {
+        if (!m || !m.username) return false;
+        if (m.isLive !== true) return false;
+        if (m.status !== 'public') return false;
+        const v = Number(m.viewersCount) || 0;
+        return v >= minViewers;
+      })
+      .sort((a, b) => (Number(b.viewersCount) || 0) - (Number(a.viewersCount) || 0))
       .map((m) => ({
-        username: m.username,
-        num_users: m.viewersCount || 0,
+        username: m.username.trim(),
+        num_users: Number(m.viewersCount) || 0,
         site: 'stripchat',
         category: 'couple',
       }));
@@ -403,7 +475,6 @@ async function fetchStripchatCouplesDirect(env, minViewers = 200) {
   }
 }
 
-/** Fallback to browser execution if Stripchat challenges direct fetch */
 async function fetchStripchatCouplesBrowser(page, minViewers = 200) {
   const apiUrl = 'https://stripchat.com/api/front/models?limit=60&offset=0&primaryTag=couples&sortBy=stripRanking';
   return await page.evaluate(
@@ -417,11 +488,17 @@ async function fetchStripchatCouplesBrowser(page, minViewers = 200) {
       const data = await r.json();
       const models = Array.isArray(data?.models) ? data.models : [];
       return models
-        .filter((m) => m.isLive === true && m.status === 'public' && (m.viewersCount || 0) >= minViewers)
-        .sort((a, b) => (b.viewersCount || 0) - (a.viewersCount || 0))
+        .filter((m) => {
+          if (!m || !m.username) return false;
+          if (m.isLive !== true) return false;
+          if (m.status !== 'public') return false;
+          const v = Number(m.viewersCount) || 0;
+          return v >= minViewers;
+        })
+        .sort((a, b) => (Number(b.viewersCount) || 0) - (Number(a.viewersCount) || 0))
         .map((m) => ({
-          username: m.username,
-          num_users: m.viewersCount || 0,
+          username: m.username.trim(),
+          num_users: Number(m.viewersCount) || 0,
           site: 'stripchat',
           category: 'couple',
         }));
@@ -814,7 +891,7 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
       const scCategories = wanted.filter((c) => c.site === 'stripchat');
       const needingBrowser = [];
 
-      // 1. Fetch Stripchat categories directly (free, 0 browser seconds)
+      // 1. Fetch Stripchat categories directly (costs 0 browser seconds)
       for (const cat of scCategories) {
         const catKey = `stripchat:${cat.label}`;
         const minV = cat.min_viewers || 200;
@@ -906,7 +983,6 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
             } catch (_) {}
           }
 
-          // If any Chaturbate categories need browser, load Chaturbate homepage to resolve challenge
           const needsCb = needingBrowser.some((c) => (c.site || 'chaturbate') === 'chaturbate');
           if (needsCb) {
             await page
@@ -974,8 +1050,10 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
     const logRows = [];
 
     for (const c of candidates) {
-      const poolKey = `${c.site || 'chaturbate'}:${c.username.toLowerCase()}`;
-      const uLower = c.username.toLowerCase();
+      const u = c.username.trim();
+      const uLower = u.toLowerCase();
+      const site = c.site || 'chaturbate';
+      const poolKey = `${site}:${uLower}`;
       let reason = null;
 
       if (inPoolSet.has(poolKey)) {
@@ -985,42 +1063,42 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
       }
 
       if (reason) {
-        result.skipped.push({ site: c.site, category: c.category, username: c.username, reason });
+        result.skipped.push({ site, category: c.category, username: u, reason });
         continue;
       }
 
       if (dryrun) {
-        result.added.push({ site: c.site, category: c.category, username: c.username, num_users: c.num_users, dryrun: true });
+        result.added.push({ site, category: c.category, username: u, num_users: c.num_users, dryrun: true });
         continue;
       }
 
       addRows.push({
-        username: c.username,
-        site: c.site || 'chaturbate',
+        username: u,
+        site,
         status: 'unassigned',
         resolution: 2160,
         framerate: 60,
       });
 
       channelRows.push({
-        username: c.username,
+        username: u,
         created_at: Math.floor(Date.now() / 1000),
       });
 
       autoRows.push({
-        username: c.username,
-        gender: c.site === 'stripchat' ? 'stripchat_couple' : c.category,
+        username: u,
+        gender: site === 'stripchat' ? 'stripchat_couple' : c.category,
         viewers: c.num_users,
         updated_at: new Date().toISOString(),
       });
 
       logRows.push({
-        username: c.username,
+        username: u,
         log_level: 'info',
-        message: `autopilot: added [${c.site}] ${c.category} ${c.username} (${c.num_users} viewers)`,
+        message: `autopilot: added [${site}] ${c.category} ${u} (${c.num_users} viewers)`,
       });
 
-      result.added.push({ site: c.site, category: c.category, username: c.username, num_users: c.num_users });
+      result.added.push({ site, category: c.category, username: u, num_users: c.num_users });
     }
 
     if (!dryrun && addRows.length > 0) {
