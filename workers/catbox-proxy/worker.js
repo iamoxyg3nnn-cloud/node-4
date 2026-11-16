@@ -55,6 +55,7 @@ export default {
 					Origin: 'https://catbox.moe',
 					Referer: 'https://catbox.moe/',
 				},
+				signal: AbortSignal.timeout(25000),
 			});
 
 			const text = await resp.text();

@@ -1,76 +1,29 @@
 /**
- * Chaturbate top-channels autopilot — Cloudflare Worker
- * -----------------------------------------------------
+ * Chaturbate & Stripchat top-channels autopilot — Cloudflare Worker
+ * ------------------------------------------------------------------
  * Every 15 minutes (Cron Trigger) this worker wakes up, but it only performs a
  * real scan every `scan_interval_minutes` (default 45) — see the cadence gate
- * below. Each scan reads Chaturbate's public "female" and "couple" room
- * listings and keeps a healthy BUFFER of the most-viewed PUBLIC rooms (above a
- * viewer threshold) ready in the shared Supabase `channel_assignments` pool
- * (status = "unassigned"). Go DVR nodes claim "unassigned" rows when
- * CHANNEL_POOL_MODE = pooled.
+ * below. Each scan inspects:
+ *   1. Chaturbate's public "female" and "couple" room listings
+ *   2. Stripchat's public "couple" room listings (sorted by top viewers)
  *
- * Behaviour:
- *   - Never removes channels.
- *   - Keeps ~`target_buffer` unassigned channels ready per category (auto
- *     refills as nodes claim/record them). Configurable without redeploy.
- *   - Registers every channel it adds in the `channels` catalogue (best-effort,
- *     after the assignment). Nothing deletes channels automatically any more:
- *     the Go controller's orphan prune used to drop any `channel_assignments`
- *     row whose username was missing from `channels`, which silently undid
- *     freshly added channels (they have no catalogue row until a node records
- *     them) — the "we add channels but the pool never grows" bug. The prune has
- *     been removed on operator instruction; deletions are manual.
- *   - Manual removals stick: channels the worker has auto-added before are
- *     remembered in `pool_autopilot` and are NOT re-added if they later
- *     disappear from the pool — but only when the channel also reached the
- *     `channels` catalogue. An auto-added entry that never got that far was
- *     removed by the old prune, not by an operator, so it stays eligible.
- *   - Only PUBLIC rooms with num_users > min_viewers qualify.
- *   - Cloudflare/custom anti-bot challenge: a headless Chromium (Browser
- *     Rendering binding) loads Chaturbate, lets the challenge clear, then
- *     fetches the roomlist from inside the browser. The freshly minted
- *     clearance cookie is cached in Workers KV and reused on the next run to
- *     reduce browser launches / rate limits.
- *   - Browser budget is treated as scarce (see browser-rendering/limits; the
- *     account is on Workers Free, so Browser Rendering gets 10 minutes/day).
- *     The strategy is to stay *under* the limit rather than collect a 429:
- *       * a scan only runs every `scan_interval_minutes` (default 45) even
- *         though the cron ticks every 15 minutes ("throttled");
- *       * the browser is only launched when a category is actually below its
- *         buffer — a full buffer short-circuits the scan ("buffer_full");
- *       * the roomlist is first tried with a plain `fetch` reusing the cached
- *         clearance cookie (cheap); the browser is only used for what is still
- *         missing ("direct");
- *       * browser time is metered per UTC day in KV (`browser_daily_seconds`,
- *         default 480 s of the free 600 s). Once the budget is nearly spent the
- *         worker refuses to launch ("budget_exhausted") instead of being 429'd;
- *       * launches are spaced by `browser_min_spacing_seconds` (default 90 s) to
- *         respect the per-account new-instance rate limit ("instance_spacing");
- *       * only one scan may be in flight at a time (KV single-flight lock), so
- *         two close-together invocations can never launch two browsers;
- *       * a transient `429` backs off for minutes (honouring Retry-After, with
- *         an exponential cap of 1 h) instead of blanking the rest of the UTC
- *         day. Only the free-plan daily cap ("Browser time limit exceeded for
- *         today") waits for the next UTC day.
- *     Before this, one 429 locked the worker out until the next UTC midnight.
- *   - `GET /` is a status no-op; a scan must be requested explicitly with
- *     `POST /` or `GET /?scan=1` (&dryrun=1 to preview, &force=1 to ignore a
- *     stale backoff) so uptime probes can never mint a browser session.
+ * Keeps a healthy BUFFER of the most-viewed PUBLIC rooms ready in the shared
+ * Supabase `channel_assignments` pool (status = "unassigned").
+ * Go DVR nodes claim "unassigned" rows when CHANNEL_POOL_MODE = pooled.
  *
- * Config (Supabase `app_settings` key `autopilot_config`, self-seeded):
- *   { min_viewers, target_buffer, categories:[{key,label}], stale_minutes,
- *     scan_interval_minutes, browser_daily_seconds, browser_min_spacing_seconds }
+ * Multi-Site Behaviour:
+ *   - Chaturbate: female & couple rooms (filtered by min_viewers, default 20k)
+ *   - Stripchat: couple category rooms (filtered by min_viewers, default 200)
+ *   - Only PUBLIC and live streams qualify.
+ *   - Automatic site tagging: `site = 'chaturbate'` or `site = 'stripchat'`.
+ *   - Direct fetch is attempted first (free, 0 browser seconds).
+ *   - Headless Chromium (Browser Rendering) is used only as fallback if direct
+ *     fetch is challenged by Cloudflare anti-bot.
+ *   - Strict daily browser budget accounting to never exceed Cloudflare limits.
  *
- * Env / secrets (see wrangler.toml + `wrangler secret put`):
- *   SUPABASE_URL       (var)    Supabase project URL
- *   SUPABASE_SERVICE_ROLE_KEY (secret) Worker-only key for backend writes
- *   CB_DOMAIN          (var)    https://chaturbate.com
- *   CB_USER_AGENT      (var)    Chrome UA used to talk to Chaturbate
- *   CB_COOKIES         (secret) chaturbate cookies (optional seed)
- *   CB_ALERT_WEBHOOK   (secret, optional) webhook fired on scan failure / stale
- *   CB_SUCCESS_WEBHOOK (secret, optional) webhook fired when channels are added
- *   BROWSER            (binding) Cloudflare Browser Rendering binding
- *   AUTOPILOT          (binding) Workers KV namespace for cached session
+ * Config (Supabase `app_settings` key `autopilot_config`):
+ *   { min_viewers, target_buffer, categories:[{key,label,site,target_buffer,min_viewers}],
+ *     stale_minutes, scan_interval_minutes, browser_daily_seconds, browser_min_spacing_seconds }
  */
 
 import puppeteer from '@cloudflare/puppeteer';
@@ -80,46 +33,39 @@ const DEFAULT_CONFIG = {
   min_viewers: 20000,
   target_buffer: 10,
   categories: [
-    { key: 'f', label: 'female', target_buffer: 1 },
-    { key: 'c', label: 'couple', target_buffer: 2 },
+    { key: 'f', label: 'female', site: 'chaturbate', target_buffer: 1, min_viewers: 20000 },
+    { key: 'c', label: 'couple', site: 'chaturbate', target_buffer: 2, min_viewers: 20000 },
+    { key: 'sc_c', label: 'couple', site: 'stripchat', target_buffer: 2, min_viewers: 200 },
   ],
   stale_minutes: 70,
   scan_interval_minutes: 45,
-  // Browser Rendering is the scarce resource. Workers Free gets 10 browser
-  // minutes (600 s) per UTC day, so we stop *before* the limit instead of
-  // earning a 429: keep a safety margin (480 s) and never launch two browsers
-  // closer together than the per-account instance rate limit allows.
   browser_daily_seconds: 480,
   browser_min_spacing_seconds: 90,
 };
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-const SESSION_TTL = 2_592_000; // 30 days — cf_clearance actually lasts months, no need to expire sooner
-const RATE_LIMIT_KEY = 'rate_limited_until'; // epoch ms until which scans are skipped
-const RATE_LIMIT_STREAK_KEY = 'rate_limit_streak'; // consecutive transient 429s
-const RL_BASE_MS = 5 * 60 * 1000; // first backoff after a transient 429
-const RL_MAX_MS = 60 * 60 * 1000; // cap for exponential backoff
-const SCAN_LOCK_KEY = 'scan_lock'; // single-flight guard for browser scans
-const SCAN_LOCK_TTL_SEC = 180; // auto-expires if a run dies before releasing
-const SCAN_INTERVAL_KEY = 'last_scan_at'; // epoch ms of the last scan that actually ran
-const DEFAULT_SCAN_INTERVAL_MIN = 45; // cron tick is 15 min; scans run every 45 min
+const SESSION_TTL = 2_592_000; // 30 days
+const RATE_LIMIT_KEY = 'rate_limited_until';
+const RATE_LIMIT_STREAK_KEY = 'rate_limit_streak';
+const RL_BASE_MS = 5 * 60 * 1000;
+const RL_MAX_MS = 60 * 60 * 1000;
+const SCAN_LOCK_KEY = 'scan_lock';
+const SCAN_LOCK_TTL_SEC = 180;
+const SCAN_INTERVAL_KEY = 'last_scan_at';
+const DEFAULT_SCAN_INTERVAL_MIN = 45;
 
-// Browser-time accountant. Browser Rendering is metered per UTC day; we track
-// our own usage and refuse to launch once the budget is nearly gone, so the
-// Worker self-limits instead of being 429'd by Cloudflare.
-const BROWSER_BUDGET_DAY_KEY = 'browser_budget_day'; // YYYY-MM-DD (UTC)
-const BROWSER_USED_KEY = 'browser_seconds_used'; // browser-seconds used that day
-const BROWSER_LAST_LAUNCH_KEY = 'browser_last_launch_at'; // epoch ms of last launch
-const BROWSER_LAUNCH_ESTIMATE_SEC = 20; // conservative cost of one scan, reserved up front
-const ROOMLIST_MAX_ATTEMPTS = 6; // was 15 x 2 s = up to 30 s of billed browser time
+const BROWSER_BUDGET_DAY_KEY = 'browser_budget_day';
+const BROWSER_USED_KEY = 'browser_seconds_used';
+const BROWSER_LAST_LAUNCH_KEY = 'browser_last_launch_at';
+const BROWSER_LAUNCH_ESTIMATE_SEC = 20;
+const ROOMLIST_MAX_ATTEMPTS = 6;
 const ROOMLIST_RETRY_MS = 1500;
-const STALE_ALERT_KEY = 'stale_alert_at'; // throttle repeated staleness alerts
+const STALE_ALERT_KEY = 'stale_alert_at';
 const STALE_ALERT_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const CONFIG_KEY = 'autopilot_config';
 const SCANS_KEY = 'autopilot_scans';
 const HEARTBEAT_KEY = 'autopilot_heartbeat';
-// ---- End config ------------------------------------------------------------
 
 function jsonResponse(obj, status = 200) {
   return new Response(JSON.stringify(obj, null, 2), {
@@ -128,7 +74,7 @@ function jsonResponse(obj, status = 200) {
   });
 }
 
-// ---- app_settings helpers ---------------------------------------------------
+// ---- Supabase helpers -------------------------------------------------------
 function sbHeaders(env, extra = {}) {
   return {
     apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -156,7 +102,6 @@ async function sbPost(env, path, body, extra = {}) {
   return resp;
 }
 
-// POST an array of rows in a single request (keeps subrequest count low).
 async function sbPostMany(env, path, rows, extra = {}) {
   if (!rows || rows.length === 0) return;
   await sbPost(env, path, rows, extra);
@@ -177,30 +122,15 @@ async function setSetting(env, key, value) {
   );
 }
 
-async function loadConfig(env) {
-  let cfg = null;
-  try {
-    cfg = await getSetting(env, CONFIG_KEY);
-  } catch (e) {
-    console.error('loadConfig failed, using defaults:', e.message);
-  }
-  if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.categories)) {
-    cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-    try {
-      await setSetting(env, CONFIG_KEY, cfg); // self-seed so it's editable
-    } catch (e) {
-      console.error('self-seed config failed:', e.message);
-    }
-  }
+function normalizeConfig(raw) {
+  const cfg = raw && typeof raw === 'object' ? raw : {};
   cfg.min_viewers = Number(cfg.min_viewers) || DEFAULT_CONFIG.min_viewers;
   cfg.target_buffer = Number(cfg.target_buffer) || DEFAULT_CONFIG.target_buffer;
   cfg.stale_minutes = Number(cfg.stale_minutes) || DEFAULT_CONFIG.stale_minutes;
-  // Minimum spacing between real scans, in minutes (0 = scan on every cron tick).
   cfg.scan_interval_minutes =
     Number(cfg.scan_interval_minutes) >= 0
       ? Number(cfg.scan_interval_minutes)
       : DEFAULT_CONFIG.scan_interval_minutes;
-  // Browser-time safety valve and launch spacing (see DEFAULT_CONFIG).
   cfg.browser_daily_seconds =
     Number(cfg.browser_daily_seconds) > 0
       ? Number(cfg.browser_daily_seconds)
@@ -209,14 +139,52 @@ async function loadConfig(env) {
     Number(cfg.browser_min_spacing_seconds) > 0
       ? Number(cfg.browser_min_spacing_seconds)
       : DEFAULT_CONFIG.browser_min_spacing_seconds;
+
   if (!Array.isArray(cfg.categories) || cfg.categories.length === 0) {
-    cfg.categories = DEFAULT_CONFIG.categories;
+    cfg.categories = JSON.parse(JSON.stringify(DEFAULT_CONFIG.categories));
+  } else {
+    // If stripchat couple is missing from categories, add it automatically
+    const hasStripchat = cfg.categories.some((c) => (c.site || '') === 'stripchat');
+    if (!hasStripchat) {
+      cfg.categories.push({
+        key: 'sc_c',
+        label: 'couple',
+        site: 'stripchat',
+        target_buffer: 2,
+        min_viewers: 200,
+      });
+    }
   }
-  // Per-category buffer size (fall back to the global default).
+
   for (const cat of cfg.categories) {
-    cat.target_buffer = Number(cat.target_buffer) || cfg.target_buffer || 10;
+    cat.site = cat.site || 'chaturbate';
+    cat.target_buffer = Number(cat.target_buffer) || cfg.target_buffer || 2;
+    if (cat.site === 'stripchat') {
+      cat.min_viewers = Number(cat.min_viewers) || 200;
+    } else {
+      cat.min_viewers = Number(cat.min_viewers) || cfg.min_viewers || 20000;
+    }
   }
+
   return cfg;
+}
+
+async function loadConfig(env) {
+  let cfg = null;
+  try {
+    cfg = await getSetting(env, CONFIG_KEY);
+  } catch (e) {
+    console.error('loadConfig failed, using defaults:', e.message);
+  }
+
+  const normalized = normalizeConfig(cfg);
+  // If categories was upgraded (e.g. added stripchat), save back to app_settings
+  if (!cfg || !cfg.categories || !cfg.categories.some((c) => c.site === 'stripchat')) {
+    try {
+      await setSetting(env, CONFIG_KEY, normalized);
+    } catch (_) {}
+  }
+  return normalized;
 }
 
 // ---- Batched Supabase pool helpers ------------------------------------------
@@ -224,58 +192,78 @@ function inList(usernames) {
   return 'in.(' + usernames.map((u) => encodeURIComponent(u)).join(',') + ')';
 }
 
-async function batchInPool(env, usernames) {
-  if (usernames.length === 0) return new Set();
-  const rows = await sbGet(
-    env,
-    `channel_assignments?username=${inList(usernames)}&site=eq.chaturbate&select=username`
-  );
-  return new Set((rows || []).map((r) => r.username));
+async function batchInPool(env, items) {
+  if (!items || items.length === 0) return new Set();
+  const bySite = {};
+  for (const it of items) {
+    const s = it.site || 'chaturbate';
+    bySite[s] = bySite[s] || [];
+    bySite[s].push(it.username);
+  }
+  const poolSet = new Set();
+  for (const [site, usernames] of Object.entries(bySite)) {
+    try {
+      const rows = await sbGet(
+        env,
+        `channel_assignments?username=${inList(usernames)}&site=eq.${site}&select=username,site`
+      );
+      for (const r of rows || []) {
+        poolSet.add(`${r.site || 'chaturbate'}:${r.username.toLowerCase()}`);
+      }
+    } catch (e) {
+      console.error(`batchInPool error for site ${site}:`, e.message);
+    }
+  }
+  return poolSet;
 }
 
 async function batchAutoAdded(env, usernames) {
   if (usernames.length === 0) return new Set();
   const rows = await sbGet(env, `pool_autopilot?username=${inList(usernames)}&select=username`);
-  return new Set((rows || []).map((r) => r.username));
+  return new Set((rows || []).map((r) => r.username.toLowerCase()));
 }
 
 async function batchInChannels(env, usernames) {
   if (usernames.length === 0) return new Set();
   const rows = await sbGet(env, `channels?username=${inList(usernames)}&select=username`);
-  return new Set((rows || []).map((r) => r.username));
+  return new Set((rows || []).map((r) => r.username.toLowerCase()));
 }
 
 /**
- * Count unassigned chaturbate rows that the worker itself added, grouped by
- * gender (gender lives on `pool_autopilot`). This drives the per-category
- * buffer: deficit = target_buffer - autoUnassigned[gender].
+ * Count unassigned channels in channel_assignments per site & category.
+ * Chaturbate categories (female, couple) are resolved via pool_autopilot.
+ * Stripchat couples are tagged site=stripchat.
  */
 async function countAutoUnassigned(env) {
   const unassigned = await sbGet(
     env,
-    `channel_assignments?site=eq.chaturbate&status=eq.unassigned&select=username`
+    `channel_assignments?status=eq.unassigned&select=username,site`
   );
   const autopilot = await sbGet(env, `pool_autopilot?select=username,gender`);
   const genderByUser = {};
   for (const a of autopilot || []) {
-    if (a.username && a.gender) genderByUser[a.username] = a.gender;
+    if (a.username && a.gender) genderByUser[a.username.toLowerCase()] = a.gender;
   }
-  const autoByGender = {};
+
+  const autoByCat = {};
   for (const row of unassigned || []) {
-    const g = genderByUser[row.username];
-    if (g) autoByGender[g] = (autoByGender[g] || 0) + 1;
+    const site = row.site || 'chaturbate';
+    const u = (row.username || '').toLowerCase();
+    let g = genderByUser[u];
+    if (!g) {
+      g = site === 'stripchat' ? 'couple' : 'unknown';
+    } else if (g === 'stripchat_couple') {
+      g = 'couple';
+    }
+    const catKey = `${site}:${g}`;
+    autoByCat[catKey] = (autoByCat[catKey] || 0) + 1;
   }
-  return autoByGender;
+  return autoByCat;
 }
 
-// ---- Lightweight logging (Cloudflare only, no Supabase writes) --------------
-// The worker previously wrote an `info` row to Supabase `channel_logs` for
-// every autopilot candidate, which grew the table to ~1.5M rows / 700MB in
-// <18h and blew past Supabase usage limits. Logging now stays entirely inside
-// Cloudflare: structured console.log (visible in Workers logs / tail) plus a
-// small KV ring buffer (AUTOPILOT namespace) that auto-cleans itself.
+// ---- Lightweight logging (Cloudflare KV ring buffer) ------------------------
 const CF_LOG_KEY = 'autopilot_log';
-const CF_LOG_MAX = 200; // ring buffer size — tiny by design
+const CF_LOG_MAX = 200;
 
 async function logMany(env, entries) {
   if (!entries || !entries.length) return;
@@ -302,7 +290,6 @@ async function logMany(env, entries) {
   }
 }
 
-// Keep the KV log buffer bounded (autoclean). Called after each scan.
 async function trimChannelLogs(env) {
   try {
     const prev = await env.AUTOPILOT?.get(CF_LOG_KEY, { type: 'json' });
@@ -320,7 +307,7 @@ async function trimChannelLogs(env) {
 function topRooms(data, minViewers) {
   const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
   return rooms
-    .filter((r) => (r.current_show || r.room_status) === 'public' && (r.num_users ?? 0) > minViewers)
+    .filter((r) => (r.current_show || r.room_status) === 'public' && (r.num_users ?? 0) >= minViewers)
     .sort((a, b) => (b.num_users ?? 0) - (a.num_users ?? 0));
 }
 
@@ -331,7 +318,6 @@ function roomListUrl(genderKey, env) {
   );
 }
 
-/** Fetch one category's roomlist from inside the (already-challenged) page. */
 async function fetchRoomList(page, genderKey, env) {
   const apiUrl = roomListUrl(genderKey, env);
   return await page.evaluate(
@@ -346,9 +332,7 @@ async function fetchRoomList(page, genderKey, env) {
           });
           const text = await r.text();
           if (r.ok && text.trim().startsWith('{')) return JSON.parse(text);
-        } catch (_) {
-          /* retry */
-        }
+        } catch (_) {}
         await new Promise((res) => setTimeout(res, retryMs));
       }
       throw new Error('challenge not cleared / no JSON after retries');
@@ -357,13 +341,6 @@ async function fetchRoomList(page, genderKey, env) {
   );
 }
 
-/**
- * Cheapest possible roomlist fetch: a plain request from the Worker's own
- * egress, reusing the cached clearance cookie. Chaturbate binds cf_clearance to
- * the browser's IP, so this often fails — but when it does work it saves an
- * entire browser session, which is the scarcest resource we have. Returns null
- * on any failure so the caller can fall back to the browser.
- */
 async function fetchRoomListDirect(env, genderKey, cached) {
   try {
     const cookieHeader = (cached?.cookies || [])
@@ -388,6 +365,71 @@ async function fetchRoomListDirect(env, genderKey, cached) {
   }
 }
 
+// ---- Stripchat fetch --------------------------------------------------------
+/**
+ * Fetches Stripchat couple rooms directly via its front models API.
+ * Focuses on top viewers in the couples category with sortBy=stripRanking.
+ * Costs 0 browser seconds when direct fetch succeeds.
+ */
+async function fetchStripchatCouplesDirect(env, minViewers = 200) {
+  try {
+    const url = 'https://stripchat.com/api/front/models?limit=60&offset=0&primaryTag=couples&sortBy=stripRanking';
+    const r = await fetch(url, {
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+        'User-Agent': env.CB_USER_AGENT || DEFAULT_UA,
+        Referer: 'https://stripchat.com/couples',
+      },
+    });
+    if (!r.ok) {
+      console.warn(`[stripchat] HTTP ${r.status} on direct fetch`);
+      return null;
+    }
+    const data = await r.json();
+    const models = Array.isArray(data?.models) ? data.models : [];
+    const qualified = models
+      .filter((m) => m.isLive === true && m.status === 'public' && (m.viewersCount || 0) >= minViewers)
+      .sort((a, b) => (b.viewersCount || 0) - (a.viewersCount || 0))
+      .map((m) => ({
+        username: m.username,
+        num_users: m.viewersCount || 0,
+        site: 'stripchat',
+        category: 'couple',
+      }));
+    return qualified;
+  } catch (err) {
+    console.error('[stripchat] direct fetch error:', err.message);
+    return null;
+  }
+}
+
+/** Fallback to browser execution if Stripchat challenges direct fetch */
+async function fetchStripchatCouplesBrowser(page, minViewers = 200) {
+  const apiUrl = 'https://stripchat.com/api/front/models?limit=60&offset=0&primaryTag=couples&sortBy=stripRanking';
+  return await page.evaluate(
+    async ({ url, minViewers }) => {
+      const r = await fetch(url, {
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          Referer: 'https://stripchat.com/couples',
+        },
+      });
+      const data = await r.json();
+      const models = Array.isArray(data?.models) ? data.models : [];
+      return models
+        .filter((m) => m.isLive === true && m.status === 'public' && (m.viewersCount || 0) >= minViewers)
+        .sort((a, b) => (b.viewersCount || 0) - (a.viewersCount || 0))
+        .map((m) => ({
+          username: m.username,
+          num_users: m.viewersCount || 0,
+          site: 'stripchat',
+          category: 'couple',
+        }));
+    },
+    { url: apiUrl, minViewers }
+  );
+}
+
 // ---- KV session cache -------------------------------------------------------
 async function loadCachedSession(env) {
   try {
@@ -410,11 +452,6 @@ async function saveCachedSession(env, cookies) {
 }
 
 // ---- Rate-limit backoff (429) -----------------------------------------------
-/**
- * Check whether a Browser Rendering rate-limit backoff is currently active.
- * Uses KV so the backoff persists across worker restarts and survives
- * global-scale cold starts.
- */
 async function isRateLimited(env) {
   try {
     if (!env.AUTOPILOT) return false;
@@ -426,13 +463,11 @@ async function isRateLimited(env) {
   }
 }
 
-/** Next UTC midnight (epoch ms) — only the free-plan daily browser budget waits this long. */
 function nextUtcMidnightMs(nowMs = Date.now()) {
   const d = new Date(nowMs);
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0);
 }
 
-/** Pull a Retry-After hint out of a puppeteer/Browser Rendering error, if present. */
 function retryAfterSeconds(e) {
   try {
     const h = e && e.headers;
@@ -449,21 +484,6 @@ function retryAfterSeconds(e) {
   return 0;
 }
 
-/**
- * Persist a rate-limit backoff.
- *
- * A *transient* 429 from Browser Rendering (the "new browser instance" /
- * concurrency rate limit) must not take the worker out for the rest of the day.
- * The previous implementation always backed off until the next UTC midnight, so
- * a single collision between two close-together invocations killed the
- * autopilot for up to 24 h — which is exactly what happened on 2026-10-14/15
- * (heartbeat stuck at 00:15Z while every later scan bailed out as
- * "rate_limited"). Instead we use a short exponential backoff (5 min → 1 h) and
- * honour any Retry-After the API sends.
- *
- * The only case that legitimately waits for the next UTC day is the
- * free-plan *daily* browser budget: "Browser time limit exceeded for today".
- */
 async function setRateLimited(env, { dailyLimit = false, retryAfterSec = 0 } = {}) {
   try {
     if (!env.AUTOPILOT) return;
@@ -497,20 +517,15 @@ async function setRateLimited(env, { dailyLimit = false, retryAfterSec = 0 } = {
   }
 }
 
-/** Classify a browser-launch error and record the right kind of backoff. */
 async function backoffFromLaunchError(env, e) {
   const msg = String((e && e.message) || '').toLowerCase();
-  const dailyLimit = msg.includes('time limit exceeded'); // free-plan daily browser budget
+  const dailyLimit = msg.includes('time limit exceeded');
   const transient = msg.includes('429') || msg.includes('rate limit') || msg.includes('too many');
   const retryAfterSec = retryAfterSeconds(e);
   if (!dailyLimit && !transient && !retryAfterSec) return;
   await setRateLimited(env, { dailyLimit, retryAfterSec });
 }
 
-/**
- * Clear rate-limit backoff (called after a successful browser launch following
- * a prior rate-limit period). A success also resets the exponential streak.
- */
 async function clearRateLimited(env) {
   try {
     if (!env.AUTOPILOT) return;
@@ -521,12 +536,6 @@ async function clearRateLimited(env) {
 }
 
 // ---- Single-flight scan lock -------------------------------------------------
-/**
- * Only one browser-based scan may be in flight at a time. Cron slots are close
- * together (and the HTTP route can request a scan), and two `puppeteer.launch`
- * calls inside Browser Rendering's minimum instance spacing is precisely what
- * returns `429 ... Rate limit exceeded`.
- */
 async function acquireScanLock(env) {
   try {
     if (!env.AUTOPILOT) return true;
@@ -536,7 +545,7 @@ async function acquireScanLock(env) {
     });
     return true;
   } catch (_) {
-    return true; // never let lock trouble block a scan
+    return true;
   }
 }
 
@@ -547,16 +556,11 @@ async function releaseScanLock(env) {
 }
 
 // ---- Scan cadence (45 min) ---------------------------------------------------
-/**
- * The cron tick fires every 15 minutes (cheap: the account is limited to 5 Cron
- * Triggers in total, so we cannot use several offset expressions to build a
- * 45-minute schedule). Instead the worker records the last scan that actually
- * ran and skips the in-between ticks. This keeps the effective browser-scan
- * cadence at `scan_interval_minutes` while using a single cron slot.
- */
 async function getLastScanAt(env) {
   try {
-    return Number(await env.AUTOPILOT?.get(SCAN_INTERVAL_KEY)) || 0;
+    if (!env.AUTOPILOT) return 0;
+    const v = await env.AUTOPILOT.get(SCAN_INTERVAL_KEY);
+    return v ? Number(v) || 0 : 0;
   } catch (_) {
     return 0;
   }
@@ -564,44 +568,60 @@ async function getLastScanAt(env) {
 
 async function markScanStarted(env) {
   try {
-    await env.AUTOPILOT?.put(SCAN_INTERVAL_KEY, String(Date.now()));
-  } catch (_) {}
+    if (!env.AUTOPILOT) return;
+    await env.AUTOPILOT.put(SCAN_INTERVAL_KEY, String(Date.now()), {
+      expirationTtl: 86400,
+    });
+  } catch (e) {
+    console.error('markScanStarted failed:', e.message);
+  }
 }
 
-// ---- Browser-time budget -----------------------------------------------------
-/** UTC day key (YYYY-MM-DD) that the browser budget is accounted against. */
-function utcDayKey(nowMs = Date.now()) {
-  return new Date(nowMs).toISOString().slice(0, 10);
+// ---- Browser budget accountant ----------------------------------------------
+function todayUtcKey() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    d.getUTCDate()
+  ).padStart(2, '0')}`;
 }
 
-/** Browser seconds already spent today (resets automatically at UTC midnight). */
 async function getBrowserSecondsUsed(env) {
   try {
-    const storedDay = await env.AUTOPILOT?.get(BROWSER_BUDGET_DAY_KEY);
-    if (storedDay !== utcDayKey()) return 0;
-    return Number(await env.AUTOPILOT?.get(BROWSER_USED_KEY)) || 0;
+    if (!env.AUTOPILOT) return 0;
+    const today = todayUtcKey();
+    const recordedDay = await env.AUTOPILOT.get(BROWSER_BUDGET_DAY_KEY);
+    if (recordedDay !== today) return 0;
+    const v = await env.AUTOPILOT.get(BROWSER_USED_KEY);
+    return v ? Number(v) || 0 : 0;
   } catch (_) {
     return 0;
   }
 }
 
 async function addBrowserSeconds(env, seconds) {
-  if (!(seconds > 0)) return;
+  if (seconds <= 0) return;
   try {
-    const day = utcDayKey();
-    const storedDay = await env.AUTOPILOT?.get(BROWSER_BUDGET_DAY_KEY);
-    const used = storedDay === day ? Number(await env.AUTOPILOT?.get(BROWSER_USED_KEY)) || 0 : 0;
-    const total = used + seconds;
-    await env.AUTOPILOT?.put(BROWSER_BUDGET_DAY_KEY, day, { expirationTtl: 172800 });
-    await env.AUTOPILOT?.put(BROWSER_USED_KEY, String(Math.round(total * 10) / 10), {
-      expirationTtl: 172800,
-    });
-  } catch (_) {}
+    if (!env.AUTOPILOT) return;
+    const today = todayUtcKey();
+    const recordedDay = await env.AUTOPILOT.get(BROWSER_BUDGET_DAY_KEY);
+    let total = seconds;
+    if (recordedDay === today) {
+      const v = await env.AUTOPILOT.get(BROWSER_USED_KEY);
+      total += v ? Number(v) || 0 : 0;
+    }
+    await env.AUTOPILOT.put(BROWSER_BUDGET_DAY_KEY, today, { expirationTtl: 172800 });
+    await env.AUTOPILOT.put(BROWSER_USED_KEY, String(total), { expirationTtl: 172800 });
+    console.log(`browser time charged: +${seconds.toFixed(1)}s (today: ${total.toFixed(1)}s)`);
+  } catch (e) {
+    console.error('addBrowserSeconds failed:', e.message);
+  }
 }
 
 async function getLastLaunchAt(env) {
   try {
-    return Number(await env.AUTOPILOT?.get(BROWSER_LAST_LAUNCH_KEY)) || 0;
+    if (!env.AUTOPILOT) return 0;
+    const v = await env.AUTOPILOT.get(BROWSER_LAST_LAUNCH_KEY);
+    return v ? Number(v) || 0 : 0;
   } catch (_) {
     return 0;
   }
@@ -609,14 +629,14 @@ async function getLastLaunchAt(env) {
 
 async function markBrowserLaunched(env) {
   try {
-    await env.AUTOPILOT?.put(BROWSER_LAST_LAUNCH_KEY, String(Date.now()), {
-      expirationTtl: 3600,
-    });
-  } catch (_) {}
+    if (!env.AUTOPILOT) return;
+    await env.AUTOPILOT.put(BROWSER_LAST_LAUNCH_KEY, String(Date.now()), { expirationTtl: 86400 });
+  } catch (e) {
+    console.error('markBrowserLaunched failed:', e.message);
+  }
 }
-// ---- End rate-limit helpers -------------------------------------------------
 
-// ---- Heartbeat / stale / metrics -------------------------------------------
+// ---- Heartbeat & alerts -----------------------------------------------------
 async function writeHeartbeat(env, method) {
   try {
     await setSetting(env, HEARTBEAT_KEY, {
@@ -632,20 +652,23 @@ async function checkStale(env, cfg) {
   try {
     const hb = await getSetting(env, HEARTBEAT_KEY);
     if (!hb || !hb.last_success_at) return;
-    const ageMin = (Date.now() - new Date(hb.last_success_at).getTime()) / 60000;
-    if (ageMin <= cfg.stale_minutes) return;
-    // Throttle: without this, every cron tick (and every backoff-window scan)
-    // would re-alert, so one long outage could send dozens of notifications.
-    try {
-      const lastAlert = Number(await env.AUTOPILOT?.get(STALE_ALERT_KEY)) || 0;
-      if (Date.now() - lastAlert < STALE_ALERT_INTERVAL_MS) return;
-      await env.AUTOPILOT?.put(STALE_ALERT_KEY, String(Date.now()), { expirationTtl: 86400 });
-    } catch (_) {}
-    await alert(
-      env,
-      `autopilot heartbeat stale: last successful scan ${ageMin.toFixed(0)} min ago ` +
-        `(threshold ${cfg.stale_minutes} min)`
-    );
+    const ageMinutes = (Date.now() - new Date(hb.last_success_at).getTime()) / 60000;
+    if (ageMinutes <= cfg.stale_minutes) return;
+
+    if (env.AUTOPILOT) {
+      const lastAlert = await env.AUTOPILOT.get(STALE_ALERT_KEY);
+      if (lastAlert && Date.now() - Number(lastAlert) < STALE_ALERT_INTERVAL_MS) return;
+      await env.AUTOPILOT.put(STALE_ALERT_KEY, String(Date.now()), {
+        expirationTtl: Math.ceil(STALE_ALERT_INTERVAL_MS / 1000),
+      });
+    }
+
+    const msg =
+      `autopilot stale: last successful scan was ${Math.round(ageMinutes)}m ago ` +
+      `(threshold ${cfg.stale_minutes}m, last method: ${hb.method || 'unknown'})`;
+    console.error(msg);
+    await logMany(env, [{ username: '__autopilot__', log_level: 'error', message: msg }]);
+    await alert(env, msg);
   } catch (e) {
     console.error('checkStale failed:', e.message);
   }
@@ -689,21 +712,23 @@ async function successAlert(env, added) {
   }
 }
 
-// ---- Main scan --------------------------------------------------------------
-async function runScan(env, dryrun = false, trigger = 'unknown', force = false) {
+// ---- Main scan loop ---------------------------------------------------------
+async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
   const cfg = await loadConfig(env);
-
   const result = {
-    v: 3,
+    now: new Date().toISOString(),
     trigger,
+    dryrun: !!dryrun,
     config: {
       min_viewers: cfg.min_viewers,
       target_buffer: cfg.target_buffer,
       scan_interval_minutes: cfg.scan_interval_minutes,
+      categories: cfg.categories,
     },
-    method: env.BROWSER ? 'browser' : 'direct',
+    method: 'direct',
     female: [],
     couple: [],
+    stripchat_couple: [],
     added: [],
     skipped: [],
     errors: [],
@@ -711,20 +736,14 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
 
   const startedAt = Date.now();
   let browser = null;
-  let launchedAt = 0; // epoch ms of the last successful puppeteer.launch
+  let launchedAt = 0;
 
-  // A forced run (manual recovery) clears a stale backoff/lock first so an
-  // operator is never locked out by an old KV entry.
   if (force) {
     await clearRateLimited(env);
     await releaseScanLock(env);
   }
 
-  // ---- Scan cadence gate -----------------------------------------------------
-  // Cron ticks every 15 min; a real scan only happens every
-  // `scan_interval_minutes` (default 45). Browser Rendering time is the scarce
-  // resource (Workers Free: 10 browser-minutes/day), so the tick stays cheap
-  // and the browser work is spread out. Manual runs (`force`) bypass this.
+  // ---- Cadence gate ---------------------------------------------------------
   if (!dryrun && !force && String(trigger).startsWith('cron:')) {
     const intervalMs = (Number(cfg.scan_interval_minutes) || 0) * 60000;
     const lastScanAt = await getLastScanAt(env);
@@ -737,8 +756,7 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
     }
   }
 
-  // Single-flight guard: never let two invocations launch a browser at once.
-  // Dry runs are exempt (they never launch a browser and never write).
+  // Single-flight lock
   const locked = dryrun || (await acquireScanLock(env));
   if (!locked) {
     result.method = 'skipped';
@@ -749,36 +767,32 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
 
   try {
     await markScanStarted(env);
-    await checkStale(env, cfg); // alert if the previous successful scan was too long ago
+    await checkStale(env, cfg);
 
-    const autoByGender = await countAutoUnassigned(env).catch((e) => {
+    const autoByCat = await countAutoUnassigned(env).catch((e) => {
       result.errors.push(`countAutoUnassigned failed: ${e.message}`);
       return {};
     });
 
-    // Per-category deficit: how many unassigned channels still need adding.
-    // No deficit anywhere => no browser launch at all (keeps us well inside
-    // Browser Rendering's daily/instance budget) — the cheapest possible scan.
+    // Calculate deficits per category
     const deficits = {};
-    let needBrowser = false;
+    let needScan = false;
     for (const cat of cfg.categories) {
-      const d = Math.max(0, cat.target_buffer - (autoByGender[cat.label] || 0));
-      deficits[cat.label] = d;
-      if (d > 0) needBrowser = true;
+      const site = cat.site || 'chaturbate';
+      const catKey = `${site}:${cat.label}`;
+      const current = autoByCat[catKey] || 0;
+      const d = Math.max(0, cat.target_buffer - current);
+      deficits[catKey] = d;
+      if (d > 0) needScan = true;
     }
 
-    // Gather candidates per category (capped at the per-category deficit).
-    const candidates = []; // {category, label, username, num_users}
-    let page = null;
+    const bufferSummary = cfg.categories
+      .map((cat) => `${cat.site || 'chaturbate'}:${cat.label}=${autoByCat[`${cat.site || 'chaturbate'}:${cat.label}`] || 0}/${cat.target_buffer}`)
+      .join(', ');
+    console.log(`autopilot: buffer status (${bufferSummary})`);
 
-    // ---- Phase 1: roomlist fetch (browser is the last resort) ----------------
-    // Order of preference, cheapest first:
-    //   1. no deficit at all        -> do nothing, no browser, no subrequests
-    //   2. plain fetch + cached clearance cookie (saves a whole browser session)
-    //   3. headless browser via the Browser Rendering binding
-    // The browser is metered (Free plan: 10 browser-minutes/day), so before
-    // launching we check our own daily accountant and the launch-spacing guard,
-    // which is what keeps us *under* Cloudflare's limit instead of being 429'd.
+    const candidates = [];
+    let page = null;
     const cached = await loadCachedSession(env);
     const topsByCategory = {};
 
@@ -787,37 +801,53 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
       const msg = 'rate limited — skipping scan until backoff expires';
       result.errors.push(msg);
       await logMany(env, [{ username: '__autopilot__', log_level: 'warn', message: `autopilot: ${msg}` }]);
-    } else if (!needBrowser) {
+    } else if (!needScan) {
       result.method = 'buffer_full';
-      console.log(
-        `autopilot: buffer full (female=${autoByGender.female || 0}, couple=${
-          autoByGender.couple || 0
-        }) — no browser launch needed`
-      );
+      console.log(`autopilot: all buffers full (${bufferSummary}) — no roomlist fetch needed`);
     } else {
-      const wanted = cfg.categories.filter((cat) => (deficits[cat.label] || 0) > 0);
+      const wanted = cfg.categories.filter((cat) => {
+        const catKey = `${cat.site || 'chaturbate'}:${cat.label}`;
+        return (deficits[catKey] || 0) > 0;
+      });
 
-      // Step 2: try the worker's own egress first (free apart from wall time).
+      const cbCategories = wanted.filter((c) => (c.site || 'chaturbate') === 'chaturbate');
+      const scCategories = wanted.filter((c) => c.site === 'stripchat');
       const needingBrowser = [];
+
+      // 1. Fetch Stripchat categories directly (free, 0 browser seconds)
+      for (const cat of scCategories) {
+        const catKey = `stripchat:${cat.label}`;
+        const minV = cat.min_viewers || 200;
+        const scRooms = await fetchStripchatCouplesDirect(env, minV);
+        if (scRooms && scRooms.length > 0) {
+          topsByCategory[catKey] = scRooms;
+          console.log(`autopilot: Stripchat couples fetched directly (${scRooms.length} qualified >= ${minV} viewers)`);
+        } else {
+          needingBrowser.push(cat);
+        }
+      }
+
+      // 2. Fetch Chaturbate categories directly using cached cookies if present
       if (cached?.cookies?.length) {
-        for (const cat of wanted) {
+        for (const cat of cbCategories) {
+          const catKey = `chaturbate:${cat.label}`;
           const data = await fetchRoomListDirect(env, cat.key, cached);
           if (data) {
-            topsByCategory[cat.key] = topRooms(data, cfg.min_viewers);
+            topsByCategory[catKey] = topRooms(data, cat.min_viewers || cfg.min_viewers);
           } else {
             needingBrowser.push(cat);
           }
         }
         if (Object.keys(topsByCategory).length > 0) result.method = 'direct';
       } else {
-        needingBrowser.push(...wanted);
+        needingBrowser.push(...cbCategories);
       }
 
-      // Step 3: only fall back to the browser for what is still missing.
+      // 3. Fallback to browser ONLY for categories that could not be fetched directly
       if (needingBrowser.length === 0) {
-        console.log('autopilot: roomlist served without a browser session');
+        console.log('autopilot: all roomlists served directly without browser');
       } else if (!env.BROWSER) {
-        result.errors.push('BROWSER binding not configured');
+        result.errors.push('BROWSER binding not configured for browser-needing categories');
       } else {
         const usedSeconds = await getBrowserSecondsUsed(env);
         const budgetLeft = cfg.browser_daily_seconds - usedSeconds;
@@ -826,23 +856,19 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
         result.browser_seconds_used_today = Math.round(usedSeconds * 10) / 10;
 
         if (budgetLeft < BROWSER_LAUNCH_ESTIMATE_SEC) {
-          // Self-imposed cap: refuse to launch rather than earn a 429. The pool
-          // simply waits for the next UTC day.
           result.method = 'budget_exhausted';
           const msg =
             `daily browser budget spent (${usedSeconds.toFixed(1)}s of ` +
-            `${cfg.browser_daily_seconds}s) — pausing browser scans until the next UTC day`;
+            `${cfg.browser_daily_seconds}s) — pausing browser scans until next UTC day`;
           result.errors.push(msg);
           await logMany(env, [{ username: '__autopilot__', log_level: 'warn', message: `autopilot: ${msg}` }]);
           await setRateLimited(env, { dailyLimit: true });
         } else if (sinceLastLaunchMs < minSpacingMs) {
-          // A second launch inside the account's per-instance rate limit is what
-          // produced `429 ... Rate limit exceeded`. Defer to the next tick.
           result.method = 'instance_spacing';
           const waitS = Math.ceil((minSpacingMs - sinceLastLaunchMs) / 1000);
           const msg = `browser launched ${Math.round(
             sinceLastLaunchMs / 1000
-          )}s ago — deferring ${waitS}s to respect the instance rate limit`;
+          )}s ago — deferring ${waitS}s to respect instance rate limit`;
           result.errors.push(msg);
           await logMany(env, [{ username: '__autopilot__', log_level: 'warn', message: `autopilot: ${msg}` }]);
         } else {
@@ -877,20 +903,30 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
           if (cached?.cookies?.length) {
             try {
               await page.setCookie(...cached.cookies);
-            } catch (_) {
-              /* ignore bad cookies, page will re-solve */
-            }
+            } catch (_) {}
           }
-          await page
-            .goto(env.CB_DOMAIN + '/', { waitUntil: 'domcontentloaded', timeout: 20000 })
-            .catch(() => {});
+
+          // If any Chaturbate categories need browser, load Chaturbate homepage to resolve challenge
+          const needsCb = needingBrowser.some((c) => (c.site || 'chaturbate') === 'chaturbate');
+          if (needsCb) {
+            await page
+              .goto(env.CB_DOMAIN + '/', { waitUntil: 'domcontentloaded', timeout: 20000 })
+              .catch(() => {});
+          }
 
           for (const cat of needingBrowser) {
+            const site = cat.site || 'chaturbate';
+            const catKey = `${site}:${cat.label}`;
             try {
-              const data = await fetchRoomList(page, cat.key, env);
-              topsByCategory[cat.key] = topRooms(data, cfg.min_viewers);
+              if (site === 'stripchat') {
+                const scRooms = await fetchStripchatCouplesBrowser(page, cat.min_viewers || 200);
+                topsByCategory[catKey] = scRooms;
+              } else {
+                const data = await fetchRoomList(page, cat.key, env);
+                topsByCategory[catKey] = topRooms(data, cat.min_viewers || cfg.min_viewers);
+              }
             } catch (e) {
-              const msg = `browser scan failed for ${cat.label}: ${e.message}`;
+              const msg = `browser scan failed for [${site}] ${cat.label}: ${e.message}`;
               result.errors.push(msg);
               await logMany(env, [{ username: '__autopilot__', log_level: 'error', message: msg }]);
               await alert(env, msg);
@@ -900,23 +936,31 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
       }
     }
 
-    // ---- Phase 3: Build candidates from whatever topsByCategory we have -------
+    // ---- Phase 3: Build candidates from topsByCategory -----------------------
     for (const cat of cfg.categories) {
-      const top = topsByCategory[cat.key];
+      const site = cat.site || 'chaturbate';
+      const catKey = `${site}:${cat.label}`;
+      const top = topsByCategory[catKey];
       if (!top || !Array.isArray(top)) continue;
 
-      const deficit = deficits[cat.label] ?? 0;
+      const deficit = deficits[catKey] ?? 0;
       const capped = top.slice(0, deficit);
-      result[cat.label] = capped.map((r) => ({ username: r.username, num_users: r.num_users }));
+      const resKey = site === 'stripchat' ? 'stripchat_couple' : cat.label;
+      result[resKey] = capped.map((r) => ({ username: r.username, num_users: r.num_users, site }));
       for (const r of capped) {
-        candidates.push({ category: cat.label, username: r.username, num_users: r.num_users });
+        candidates.push({
+          category: cat.label,
+          site,
+          username: r.username,
+          num_users: r.num_users,
+        });
       }
     }
 
-    // ---- Phase 4: Batch dedup + write -----------------------------------------
+    // ---- Phase 4: Dedup against pool & catalogue, then insert ----------------
     const usernames = candidates.map((c) => c.username);
     const [inPoolSet, autoAddedSet, channelsSet] = await Promise.all([
-      batchInPool(env, usernames),
+      batchInPool(env, candidates),
       batchAutoAdded(env, usernames),
       batchInChannels(env, usernames),
     ]).catch((e) => {
@@ -928,59 +972,58 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
     const channelRows = [];
     const autoRows = [];
     const logRows = [];
+
     for (const c of candidates) {
+      const poolKey = `${c.site || 'chaturbate'}:${c.username.toLowerCase()}`;
+      const uLower = c.username.toLowerCase();
       let reason = null;
-      if (inPoolSet.has(c.username)) {
+
+      if (inPoolSet.has(poolKey)) {
         reason = 'already in pool / claimed by a node';
-      } else if (autoAddedSet.has(c.username) && channelsSet.has(c.username)) {
-        // Only an operator removal leaves BOTH an auto-add record and a
-        // channels-catalogue row.  An auto-added entry that never reached the
-        // catalogue was deleted by the controller's orphan prune before any node
-        // could record it (the old "fresh add has no channels row" race), so it
-        // must stay eligible instead of being blocklisted forever.
+      } else if (autoAddedSet.has(uLower) && channelsSet.has(uLower)) {
         reason = 'previously auto-added then removed (blocklist)';
       }
 
       if (reason) {
-        result.skipped.push({ category: c.category, username: c.username, reason });
+        result.skipped.push({ site: c.site, category: c.category, username: c.username, reason });
         continue;
       }
 
       if (dryrun) {
-        result.added.push({ category: c.category, username: c.username, num_users: c.num_users, dryrun: true });
+        result.added.push({ site: c.site, category: c.category, username: c.username, num_users: c.num_users, dryrun: true });
         continue;
       }
 
       addRows.push({
         username: c.username,
-        site: 'chaturbate',
+        site: c.site || 'chaturbate',
         status: 'unassigned',
         resolution: 2160,
         framerate: 60,
       });
-      // Catalogue row (best-effort, written after the assignment): it keeps the
-      // channels table listing every pooled channel for external tools. It is
-      // no longer what protects the row from deletion — the controller no longer
-      // prunes assignments against the catalogue.
+
       channelRows.push({
         username: c.username,
         created_at: Math.floor(Date.now() / 1000),
       });
+
       autoRows.push({
         username: c.username,
-        gender: c.category,
+        gender: c.site === 'stripchat' ? 'stripchat_couple' : c.category,
         viewers: c.num_users,
         updated_at: new Date().toISOString(),
       });
+
       logRows.push({
         username: c.username,
         log_level: 'info',
-        message: `autopilot: added ${c.category} ${c.username} (${c.num_users} viewers)`,
+        message: `autopilot: added [${c.site}] ${c.category} ${c.username} (${c.num_users} viewers)`,
       });
-      result.added.push({ category: c.category, username: c.username, num_users: c.num_users });
+
+      result.added.push({ site: c.site, category: c.category, username: c.username, num_users: c.num_users });
     }
 
-    if (!dryrun) {
+    if (!dryrun && addRows.length > 0) {
       try {
         await sbPostMany(
           env,
@@ -994,9 +1037,6 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
           autoRows,
           { Prefer: 'resolution=merge-duplicates' }
         );
-        // Best-effort catalogue registration: keeps the channels table listing
-        // every pooled channel. The controller no longer deletes assignments
-        // against that table, so a failure here must never lose the add.
         try {
           await sbPostMany(
             env,
@@ -1013,7 +1053,7 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
       }
     }
 
-    // ---- Phase 5: Cache fresh cookies from browser run (if any) ----------------
+    // Cache fresh Chaturbate cookies from browser run
     if (page) {
       try {
         const cookies = await page.cookies();
@@ -1033,11 +1073,7 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
     if (browser) {
       try {
         await browser.close();
-      } catch (_) {
-        /* ignore */
-      }
-      // Charge the session against today's browser budget. Cloudflare meters the
-      // browser lifetime, which is (approximately) launch -> close.
+      } catch (_) {}
       const usedSec = launchedAt ? (Date.now() - launchedAt) / 1000 : 0;
       if (usedSec > 0 && !dryrun) {
         await addBrowserSeconds(env, usedSec);
@@ -1048,42 +1084,37 @@ async function runScan(env, dryrun = false, trigger = 'unknown', force = false) 
   }
 
   result.duration_ms = Date.now() - startedAt;
-  if (!dryrun) await trimChannelLogs(env);
   await recordScan(env, {
-    ran_at: new Date().toISOString(),
-    trigger: result.trigger,
+    t: result.now,
+    trigger,
     method: result.method,
-    min_viewers: cfg.min_viewers,
-    target_buffer: cfg.target_buffer,
-    found: { female: result.female.length, couple: result.couple.length },
-    added: result.added,
-    skipped: result.skipped,
-    errors: result.errors,
     duration_ms: result.duration_ms,
-    browser_seconds: result.browser_seconds || 0,
-    browser_seconds_used_today: result.browser_seconds_used_today ?? null,
+    added: result.added.length,
+    skipped: result.skipped.length,
+    errors: result.errors,
   });
-
+  await trimChannelLogs(env);
   return result;
 }
 
-// ---- Health check (separate cron) ------------------------------------------
+// ---- Health check -----------------------------------------------------------
 async function healthCheck(env) {
   const cfg = await loadConfig(env).catch(() => DEFAULT_CONFIG);
   await checkStale(env, cfg);
 }
 
+// ---- Worker handlers --------------------------------------------------------
 export default {
   async scheduled(event, env, ctx) {
     if (event.cron === '*/20 * * * *') {
-      ctx.waitUntil(healthCheck(env));
+      ctx.waitUntil(healthCheck(env).catch((e) => console.error('healthCheck error:', e)));
       return;
     }
     const trigger = `cron:${event.cron}`;
     ctx.waitUntil(
-      runScan(env, false, trigger).then((r) =>
-        console.log('autopilot scan complete', JSON.stringify(r))
-      )
+      runScan(env, false, trigger)
+        .then((r) => console.log('autopilot scan complete', JSON.stringify(r)))
+        .catch((e) => console.error('cron scan error:', e))
     );
   },
 
@@ -1092,6 +1123,7 @@ export default {
     const dryrun =
       url.searchParams.get('dryrun') === '1' || url.searchParams.get('dryrun') === 'true';
     const force = url.searchParams.get('force') === '1';
+
     if (url.pathname === '/health') {
       const hb = await getSetting(env, HEARTBEAT_KEY).catch(() => null);
       const ageMin = hb?.last_success_at
@@ -1110,6 +1142,7 @@ export default {
         method: hb?.method || null,
         stale_minutes: cfg.stale_minutes,
         scan_interval_minutes: cfg.scan_interval_minutes,
+        categories: cfg.categories,
         next_scan_due_in_s: Math.max(
           0,
           Math.round((lastScanAt + cfg.scan_interval_minutes * 60000 - Date.now()) / 1000)
@@ -1124,22 +1157,19 @@ export default {
       });
     }
 
-    // A plain GET used to run a full scan — so any uptime monitor hitting the
-    // root URL was minting a browser session on every probe, which (together
-    // with the 15/20-minute cron slots) is what tripped Browser Rendering's
-    // `429 ... Rate limit exceeded`. Scans must now be requested explicitly.
     const wantsScan =
       request.method !== 'GET' ||
       url.searchParams.get('scan') === '1' ||
       url.searchParams.get('run') === '1' ||
       force ||
       dryrun;
+
     if (!wantsScan) {
       const hb = await getSetting(env, HEARTBEAT_KEY).catch(() => null);
       return jsonResponse({
         ok: true,
         message:
-          'chaturbate-autopilot is up. Scans run on cron; trigger one manually with ' +
+          'chaturbate & stripchat autopilot is up. Scans run on cron; trigger manually with ' +
           'POST / (or GET /?scan=1, add &dryrun=1 to preview without writing).',
         last_success_at: hb?.last_success_at || null,
       });
@@ -1150,6 +1180,7 @@ export default {
       const result = await runScan(env, dryrun, trigger, force);
       return jsonResponse(result);
     } catch (e) {
+      console.error('runScan error:', e);
       return jsonResponse({ error: e.message }, 500);
     }
   },

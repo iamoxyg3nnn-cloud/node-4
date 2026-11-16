@@ -9,3 +9,8 @@ workers_dev = true
 # client also sends this explicitly when CATBOX_USERHASH is set in .env; this
 # [vars] keeps the Worker working for callers that don't.
 CATBOX_USERHASH = "bfd94ac28656b26ad6fbb4506"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+

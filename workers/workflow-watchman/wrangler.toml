@@ -10,8 +10,10 @@ compatibility_date = "2025-04-01"
 # Optional Discord webhook for restart/error notifications.
 # Set via: wrangler secret put DISCORD_WEBHOOK_URL
 
-[triggers]
-crons = ["*/1 * * * *"]
+# Triggers disabled: superseded by node-watchman which monitors node-1..node-15 and Supabase-Actions
+# [triggers]
+# crons = ["*/1 * * * *"]
+
 
 # Optional token guarding the public dashboard/metrics pages (sent as
 # 'x-watchman-token' header or ?token= query param). Leave unset for open access.

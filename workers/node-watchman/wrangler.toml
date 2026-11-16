@@ -16,3 +16,8 @@ crons = ["*/1 * * * *"]
 # Optional token guarding the public dashboard/metrics pages (sent as
 # 'x-watchman-token' header or ?token= query param). Leave unset for open access.
 # Set via: wrangler secret put DASHBOARD_TOKEN
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
