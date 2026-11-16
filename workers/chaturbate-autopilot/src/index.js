@@ -6,6 +6,7 @@
  * below. Each scan inspects:
  *   1. Chaturbate's public "female" and "couple" room listings
  *   2. Stripchat's public "couple" room listings (sorted by top viewers)
+ *   3. Stripchat's public "indian couple" room listings (sorted by top viewers)
  *
  * Keeps a healthy BUFFER of the most-viewed PUBLIC rooms ready in the shared
  * Supabase `channel_assignments` pool (status = "unassigned").
@@ -32,6 +33,7 @@ const DEFAULT_CONFIG = {
     { key: 'f', label: 'female', site: 'chaturbate', target_buffer: 1, min_viewers: 20000 },
     { key: 'c', label: 'couple', site: 'chaturbate', target_buffer: 2, min_viewers: 20000 },
     { key: 'sc_c', label: 'couple', site: 'stripchat', target_buffer: 2, min_viewers: 200 },
+    { key: 'sc_ic', label: 'indian_couple', site: 'stripchat', tag: 'indian', target_buffer: 2, min_viewers: 100 },
   ],
   stale_minutes: 70,
   scan_interval_minutes: 45,
@@ -173,8 +175,8 @@ function normalizeConfig(raw) {
   if (!Array.isArray(cfg.categories) || cfg.categories.length === 0) {
     cfg.categories = JSON.parse(JSON.stringify(DEFAULT_CONFIG.categories));
   } else {
-    const hasStripchat = cfg.categories.some((c) => (c.site || '') === 'stripchat');
-    if (!hasStripchat) {
+    const hasStripchatCouple = cfg.categories.some((c) => (c.site || '') === 'stripchat' && c.label === 'couple');
+    if (!hasStripchatCouple) {
       cfg.categories.push({
         key: 'sc_c',
         label: 'couple',
@@ -183,13 +185,29 @@ function normalizeConfig(raw) {
         min_viewers: 200,
       });
     }
+    const hasStripchatIndian = cfg.categories.some((c) => (c.site || '') === 'stripchat' && c.label === 'indian_couple');
+    if (!hasStripchatIndian) {
+      cfg.categories.push({
+        key: 'sc_ic',
+        label: 'indian_couple',
+        site: 'stripchat',
+        tag: 'indian',
+        target_buffer: 2,
+        min_viewers: 100,
+      });
+    }
   }
 
   for (const cat of cfg.categories) {
     cat.site = cat.site || 'chaturbate';
     cat.target_buffer = Number(cat.target_buffer) || cfg.target_buffer || 2;
     if (cat.site === 'stripchat') {
-      cat.min_viewers = Number(cat.min_viewers) || 200;
+      if (cat.label === 'indian_couple') {
+        cat.tag = cat.tag || 'indian';
+        cat.min_viewers = Number(cat.min_viewers) || 100;
+      } else {
+        cat.min_viewers = Number(cat.min_viewers) || 200;
+      }
     } else {
       cat.min_viewers = Number(cat.min_viewers) || cfg.min_viewers || 20000;
     }
@@ -207,7 +225,7 @@ async function loadConfig(env) {
   }
 
   const normalized = normalizeConfig(cfg);
-  if (!cfg || !cfg.categories || !cfg.categories.some((c) => c.site === 'stripchat')) {
+  if (!cfg || !cfg.categories || !cfg.categories.some((c) => c.label === 'indian_couple')) {
     try {
       await setSetting(env, CONFIG_KEY, normalized);
     } catch (_) {}
@@ -311,6 +329,8 @@ async function countAutoUnassigned(env) {
     let g = genderByUser[u];
     if (!g) {
       g = site === 'stripchat' ? 'couple' : 'unknown';
+    } else if (g === 'stripchat_indian_couple') {
+      g = 'indian_couple';
     } else if (g === 'stripchat_couple') {
       g = 'couple';
     }
@@ -435,29 +455,50 @@ async function fetchRoomListDirect(env, genderKey, cached) {
   }
 }
 
-// ---- Stripchat fetch --------------------------------------------------------
-async function fetchStripchatCouplesDirect(env, minViewers = 200) {
+// ---- Stripchat fetch (couples and indian couples) ---------------------------
+const STRIPCHAT_INDIAN_REGEX =
+  /\b(indian|desi|bhabhi|hindi|tamil|telugu|punjabi|malayalam|kannada|bengali|marathi|delhi|mumbai|kolkata|chennai|hyderabad|bangalore|gujju|gujarat|bihar|arjun|pooja|priya|rani)\b/i;
+
+function isStripchatIndianModel(m) {
+  if (!m) return false;
+  if (m.country === 'in') return true;
+  const text = `${m.username || ''} ${m.groupShowTopic || ''}`;
+  return STRIPCHAT_INDIAN_REGEX.test(text);
+}
+
+async function fetchStripchatRoomsDirect(env, { primaryTag = 'couples', tag = null, minViewers = 200, categoryLabel = 'couple' } = {}) {
   try {
-    const url = 'https://stripchat.com/api/front/models?limit=60&offset=0&primaryTag=couples&sortBy=stripRanking';
-    const r = await fetch(url, {
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-        'User-Agent': env.CB_USER_AGENT || DEFAULT_UA,
-        Referer: 'https://stripchat.com/couples',
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!r.ok) {
-      console.warn(`[stripchat] HTTP ${r.status} on direct fetch`);
-      return null;
-    }
-    const data = await r.json();
-    const models = Array.isArray(data?.models) ? data.models : [];
-    const qualified = models
+    const isIndian = categoryLabel === 'indian_couple' || tag === 'indian';
+    // For Indian couples, fetch offset 0 and 60 to maximize discovery across pages
+    const offsets = isIndian ? [0, 60] : [0];
+    const fetchPage = async (offset) => {
+      const url = `https://stripchat.com/api/front/models?limit=60&offset=${offset}&primaryTag=${primaryTag}&sortBy=stripRanking`;
+      const r = await fetch(url, {
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          'User-Agent': env.CB_USER_AGENT || DEFAULT_UA,
+          Referer: `https://stripchat.com/${primaryTag}`,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!r.ok) {
+        console.warn(`[stripchat] HTTP ${r.status} on direct fetch (offset=${offset})`);
+        return [];
+      }
+      const data = await r.json();
+      return Array.isArray(data?.models) ? data.models : [];
+    };
+
+    const pages = await Promise.all(offsets.map(fetchPage));
+    const allModels = pages.flat();
+    if (allModels.length === 0) return null;
+
+    const qualified = allModels
       .filter((m) => {
         if (!m || !m.username) return false;
         if (m.isLive !== true) return false;
         if (m.status !== 'public') return false;
+        if (isIndian && !isStripchatIndianModel(m)) return false;
         const v = Number(m.viewersCount) || 0;
         return v >= minViewers;
       })
@@ -466,19 +507,20 @@ async function fetchStripchatCouplesDirect(env, minViewers = 200) {
         username: m.username.trim(),
         num_users: Number(m.viewersCount) || 0,
         site: 'stripchat',
-        category: 'couple',
+        category: categoryLabel,
       }));
     return qualified;
   } catch (err) {
-    console.error('[stripchat] direct fetch error:', err.message);
+    console.error(`[stripchat] direct fetch error (${categoryLabel}):`, err.message);
     return null;
   }
 }
 
-async function fetchStripchatCouplesBrowser(page, minViewers = 200) {
-  const apiUrl = 'https://stripchat.com/api/front/models?limit=60&offset=0&primaryTag=couples&sortBy=stripRanking';
+async function fetchStripchatRoomsBrowser(page, { primaryTag = 'couples', tag = null, minViewers = 200, categoryLabel = 'couple' } = {}) {
+  const isIndian = categoryLabel === 'indian_couple' || tag === 'indian';
+  const apiUrl = `https://stripchat.com/api/front/models?limit=60&offset=0&primaryTag=${primaryTag}&sortBy=stripRanking`;
   return await page.evaluate(
-    async ({ url, minViewers }) => {
+    async ({ url, minViewers, categoryLabel, isIndian }) => {
       const r = await fetch(url, {
         headers: {
           Accept: 'application/json, text/plain, */*',
@@ -487,11 +529,18 @@ async function fetchStripchatCouplesBrowser(page, minViewers = 200) {
       });
       const data = await r.json();
       const models = Array.isArray(data?.models) ? data.models : [];
+      const indianRegex =
+        /\b(indian|desi|bhabhi|hindi|tamil|telugu|punjabi|malayalam|kannada|bengali|marathi|delhi|mumbai|kolkata|chennai|hyderabad|bangalore|gujju|gujarat|bihar|arjun|pooja|priya|rani)\b/i;
       return models
         .filter((m) => {
           if (!m || !m.username) return false;
           if (m.isLive !== true) return false;
           if (m.status !== 'public') return false;
+          if (isIndian) {
+            const isCountryIn = m.country === 'in';
+            const text = `${m.username || ''} ${m.groupShowTopic || ''}`;
+            if (!isCountryIn && !indianRegex.test(text)) return false;
+          }
           const v = Number(m.viewersCount) || 0;
           return v >= minViewers;
         })
@@ -500,10 +549,10 @@ async function fetchStripchatCouplesBrowser(page, minViewers = 200) {
           username: m.username.trim(),
           num_users: Number(m.viewersCount) || 0,
           site: 'stripchat',
-          category: 'couple',
+          category: categoryLabel,
         }));
     },
-    { url: apiUrl, minViewers }
+    { url: apiUrl, minViewers, categoryLabel, isIndian }
   );
 }
 
@@ -806,6 +855,7 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
     female: [],
     couple: [],
     stripchat_couple: [],
+    stripchat_indian_couple: [],
     added: [],
     skipped: [],
     errors: [],
@@ -891,14 +941,19 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
       const scCategories = wanted.filter((c) => c.site === 'stripchat');
       const needingBrowser = [];
 
-      // 1. Fetch Stripchat categories directly (costs 0 browser seconds)
+      // 1. Fetch Stripchat categories directly (free, 0 browser seconds)
       for (const cat of scCategories) {
         const catKey = `stripchat:${cat.label}`;
-        const minV = cat.min_viewers || 200;
-        const scRooms = await fetchStripchatCouplesDirect(env, minV);
+        const minV = cat.min_viewers || (cat.tag === 'indian' ? 100 : 200);
+        const scRooms = await fetchStripchatRoomsDirect(env, {
+          primaryTag: 'couples',
+          tag: cat.tag || null,
+          minViewers: minV,
+          categoryLabel: cat.label,
+        });
         if (scRooms && scRooms.length > 0) {
           topsByCategory[catKey] = scRooms;
-          console.log(`autopilot: Stripchat couples fetched directly (${scRooms.length} qualified >= ${minV} viewers)`);
+          console.log(`autopilot: Stripchat [${cat.label}] fetched directly (${scRooms.length} qualified >= ${minV} viewers)`);
         } else {
           needingBrowser.push(cat);
         }
@@ -995,7 +1050,12 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
             const catKey = `${site}:${cat.label}`;
             try {
               if (site === 'stripchat') {
-                const scRooms = await fetchStripchatCouplesBrowser(page, cat.min_viewers || 200);
+                const scRooms = await fetchStripchatRoomsBrowser(page, {
+                  primaryTag: 'couples',
+                  tag: cat.tag || null,
+                  minViewers: cat.min_viewers || (cat.tag === 'indian' ? 100 : 200),
+                  categoryLabel: cat.label,
+                });
                 topsByCategory[catKey] = scRooms;
               } else {
                 const data = await fetchRoomList(page, cat.key, env);
@@ -1021,7 +1081,7 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
 
       const deficit = deficits[catKey] ?? 0;
       const capped = top.slice(0, deficit);
-      const resKey = site === 'stripchat' ? 'stripchat_couple' : cat.label;
+      const resKey = site === 'stripchat' ? `stripchat_${cat.label}` : cat.label;
       result[resKey] = capped.map((r) => ({ username: r.username, num_users: r.num_users, site }));
       for (const r of capped) {
         candidates.push({
@@ -1048,6 +1108,7 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
     const channelRows = [];
     const autoRows = [];
     const logRows = [];
+    const seenInThisRun = new Set();
 
     for (const c of candidates) {
       const u = c.username.trim();
@@ -1056,7 +1117,9 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
       const poolKey = `${site}:${uLower}`;
       let reason = null;
 
-      if (inPoolSet.has(poolKey)) {
+      if (seenInThisRun.has(poolKey)) {
+        reason = 'already selected in another category this scan';
+      } else if (inPoolSet.has(poolKey)) {
         reason = 'already in pool / claimed by a node';
       } else if (autoAddedSet.has(uLower) && channelsSet.has(uLower)) {
         reason = 'previously auto-added then removed (blocklist)';
@@ -1066,6 +1129,8 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
         result.skipped.push({ site, category: c.category, username: u, reason });
         continue;
       }
+
+      seenInThisRun.add(poolKey);
 
       if (dryrun) {
         result.added.push({ site, category: c.category, username: u, num_users: c.num_users, dryrun: true });
@@ -1085,9 +1150,14 @@ async function runScan(env, dryrun = false, trigger = 'cron', force = false) {
         created_at: Math.floor(Date.now() / 1000),
       });
 
+      let genderVal = c.category;
+      if (site === 'stripchat') {
+        genderVal = c.category === 'indian_couple' ? 'stripchat_indian_couple' : 'stripchat_couple';
+      }
+
       autoRows.push({
         username: u,
-        gender: site === 'stripchat' ? 'stripchat_couple' : c.category,
+        gender: genderVal,
         viewers: c.num_users,
         updated_at: new Date().toISOString(),
       });
