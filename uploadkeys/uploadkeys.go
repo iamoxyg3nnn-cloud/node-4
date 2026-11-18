@@ -260,6 +260,12 @@ func Load() (*Set, error) {
 	}
 	var s Set
 	if err := json.Unmarshal(blob, &s); err != nil {
+		var str string
+		if errStr := json.Unmarshal(blob, &str); errStr == nil {
+			if err2 := json.Unmarshal([]byte(str), &s); err2 == nil {
+				return &s, nil
+			}
+		}
 		return nil, fmt.Errorf("decode %s: %w", keysKey, err)
 	}
 	return &s, nil
@@ -432,6 +438,12 @@ func loadStatuses() ([]KeyStatus, error) {
 	}
 	var rows []KeyStatus
 	if err := json.Unmarshal(blob, &rows); err != nil {
+		var str string
+		if errStr := json.Unmarshal(blob, &str); errStr == nil {
+			if err2 := json.Unmarshal([]byte(str), &rows); err2 == nil {
+				return rows, nil
+			}
+		}
 		return nil, fmt.Errorf("decode %s: %w", statusKey, err)
 	}
 	return rows, nil

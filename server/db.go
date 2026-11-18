@@ -424,7 +424,16 @@ func loadJSONSettingWithClient(key string, client *http.Client) []byte {
 	if len(entries) == 0 {
 		return nil
 	}
-	return []byte(string(entries[0].Value))
+	raw := entries[0].Value
+	// If the value in jsonb was double-encoded as an escaped JSON string,
+	// unquote it so callers receive the inner JSON object/array directly.
+	var str string
+	if len(raw) > 0 && raw[0] == '"' {
+		if err := json.Unmarshal(raw, &str); err == nil {
+			return []byte(str)
+		}
+	}
+	return []byte(string(raw))
 }
 
 // ─── Central session duration ────────────────────────────────────────────────
