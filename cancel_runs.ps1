@@ -1,12 +1,15 @@
 param(
     [Parameter(Mandatory = $false)]
-    [string]$Org = "lawdachuss",
+    [string]$Org = "vxillannnnnn-hub",
 
     [Parameter(Mandatory = $false)]
     [string]$Prefix = "node",
 
     [Parameter(Mandatory = $false)]
-    [int]$Count = 18,
+    [int]$Count = 15,
+
+    [Parameter(Mandatory = $false)]
+    [int[]]$Nodes = $null,
 
     [Parameter(Mandatory = $false)]
     [int]$Limit = 50,
@@ -15,8 +18,21 @@ param(
     [int]$ThrottleLimit = 10,
 
     [Parameter(Mandatory = $false)]
-    [int]$WaitTimeout = 180
+    [int]$WaitTimeout = 180,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$NoRestart
 )
+
+if ([string]::IsNullOrWhiteSpace($Org)) {
+    $Org = "vxillannnnnn-hub"
+}
+
+if ($null -ne $Nodes -and $Nodes.Count -gt 0) {
+    $repoList = $Nodes | ForEach-Object { "${Org}/${Prefix}-${_}" }
+} else {
+    $repoList = 1..$Count | ForEach-Object { "${Org}/${Prefix}-${_}" }
+}
 
 function Invoke-Parallel($items, $scriptBlock, $throttle, $extraArg = $null) {
     $results = @()
@@ -49,8 +65,6 @@ function Invoke-Parallel($items, $scriptBlock, $throttle, $extraArg = $null) {
     }
     return $results
 }
-
-$repoList = 1..$Count | ForEach-Object { "${Org}/${Prefix}-${_}" }
 
 Write-Host "=== Scanning and cancelling active workflows (last $Limit runs per repo, parallel=$ThrottleLimit) ==="
 Write-Host "Org: $Org, Prefix: $Prefix, Count: $Count"
@@ -131,26 +145,31 @@ if ($waitItems.Count -gt 0) {
     }
 }
 
-Write-Host ""
-Write-Host "=== Triggering fresh workflows in all repos (parallel) ==="
-$triggerScript = {
-    param($repo)
-    $repoName = $repo.Split('/')[-1]
-    $result = gh workflow run secure-rdp.yml --repo $repo 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host ($repoName + ": triggered successfully")
-        return [pscustomobject]@{ Repo = $repo; Success = $true }
-    } else {
-        Write-Host ($repoName + ": trigger failed - " + $result)
-        return [pscustomobject]@{ Repo = $repo; Success = $false; Error = $result }
-    }
-}
-
-$triggerResults = Invoke-Parallel $repoList $triggerScript $ThrottleLimit
-
-$failed = @($triggerResults | Where-Object { -not $_.Success })
-if ($failed.Count -gt 0) {
+if (-not $NoRestart) {
     Write-Host ""
-    Write-Host "=== Failed triggers: $($failed.Count) ==="
-    $failed | ForEach-Object { Write-Host ($_.Repo.Split('/')[-1] + ": " + $_.Error) }
+    Write-Host "=== Triggering fresh workflows in all repos (parallel) ==="
+    $triggerScript = {
+        param($repo)
+        $repoName = $repo.Split('/')[-1]
+        $result = gh workflow run secure-rdp.yml --repo $repo 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ($repoName + ": triggered successfully")
+            return [pscustomobject]@{ Repo = $repo; Success = $true }
+        } else {
+            Write-Host ($repoName + ": trigger failed - " + $result)
+            return [pscustomobject]@{ Repo = $repo; Success = $false; Error = $result }
+        }
+    }
+
+    $triggerResults = Invoke-Parallel $repoList $triggerScript $ThrottleLimit
+
+    $failed = @($triggerResults | Where-Object { -not $_.Success })
+    if ($failed.Count -gt 0) {
+        Write-Host ""
+        Write-Host "=== Failed triggers: $($failed.Count) ==="
+        $failed | ForEach-Object { Write-Host ($_.Repo.Split('/')[-1] + ": " + $_.Error) }
+    }
+} else {
+    Write-Host ""
+    Write-Host "=== -NoRestart passed: Skipping workflow triggering ==="
 }
