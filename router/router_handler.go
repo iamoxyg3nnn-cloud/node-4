@@ -684,8 +684,9 @@ type UpdateConfigRequest struct {
 	Upload18Key     string `json:"upload18_key" form:"upload18_key"`
 	DroploadKey     string `json:"dropload_key" form:"dropload_key"`
 	FileHostKey     string `json:"filehost_key" form:"filehost_key"`
-	StripchatPDKey  string `json:"stripchat_pdkey" form:"stripchat_pdkey"`
-	AffiliateWM     string `json:"affiliate_wm" form:"affiliate_wm"`
+	StripchatPDKey    string `json:"stripchat_pdkey" form:"stripchat_pdkey"`
+	AffiliateWM       string `json:"affiliate_wm" form:"affiliate_wm"`
+	DiscordWebhookURL string `json:"discord_webhook_url" form:"discord_webhook_url"`
 }
 
 // UpdateConfig updates the server configuration from the Web UI form or API POST.
@@ -757,6 +758,12 @@ func UpdateConfig(c *gin.Context) {
 	if req.AffiliateWM != "" {
 		server.ConfigMu.Lock()
 		server.Config.AffiliateWM = req.AffiliateWM
+		server.ConfigMu.Unlock()
+	}
+
+	if req.DiscordWebhookURL != "" {
+		server.ConfigMu.Lock()
+		server.Config.DiscordWebhookURL = req.DiscordWebhookURL
 		server.ConfigMu.Unlock()
 	}
 

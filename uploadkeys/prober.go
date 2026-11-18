@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/teacat/chaturbate-dvr/notifier"
 	"github.com/teacat/chaturbate-dvr/server"
 	"github.com/teacat/chaturbate-dvr/uploader"
 )
@@ -168,6 +169,17 @@ func reapDead() int {
 	for _, d := range dead {
 		fmt.Printf("[uploadkeys] auto-removed dead %s key %s: %s\n",
 			d.h.label, display(secretOf(d.h, d.c)), d.ks.Message)
+
+		remaining := len(d.h.get(s))
+		title := fmt.Sprintf("🔑 Dead upload key removed — %s", d.h.label)
+		msg := fmt.Sprintf(
+			"Upload host key for %s was rejected by the provider and auto-removed from the key store.\nKey: %s\nReason: %s\nRemaining keys for %s: %d",
+			d.h.label, display(secretOf(d.h, d.c)), d.ks.Message, d.h.label, remaining,
+		)
+		if remaining == 0 {
+			msg += fmt.Sprintf("\n\n⚠️ WARNING: %s now has NO active keys left! All uploads to %s will fail until a new key is added.\nTo restore: paste a new API key on the admin page's Upload Keys panel.", d.h.label, d.h.label)
+		}
+		notifier.Notify("uploadkey_dead:"+strings.ToLower(d.h.name)+":"+string(Fingerprint(secretOf(d.h, d.c))), title, msg)
 	}
 	return len(dead)
 }

@@ -38,12 +38,19 @@ func notifyUploadHostNeedsKey(host, reason string) {
 		rows, err := client.ListHostBackoffs()
 		if err == nil {
 			now := time.Now()
+			thisNode := server.NodeID()
 			for _, r := range rows {
 				if !strings.EqualFold(r.Host, host) {
 					continue
 				}
-				if until, ok := r.UntilTime(); ok && until.After(now) {
-					return // a peer (or an earlier incident) already reported it
+				// If a PEER node already reported an active backoff, stay silent
+				// so peer nodes don't spam the webhook simultaneously.
+				// But if this row was created by THIS node, we are the detector
+				// and must fire our alert.
+				if r.UpdatedBy != "" && r.UpdatedBy != thisNode {
+					if until, ok := r.UntilTime(); ok && until.After(now) {
+						return // a peer already reported it
+					}
 				}
 			}
 		}

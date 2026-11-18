@@ -33,8 +33,9 @@ type persistedSettings struct {
 	Upload18Key     string `json:"upload18_key,omitempty"`
 	DroploadKey     string `json:"dropload_key,omitempty"`
 	FileHostKey     string `json:"filehost_key,omitempty"`
-	StripchatPDKey  string `json:"stripchat_pdkey,omitempty"`
-	AffiliateWM     string `json:"affiliate_wm,omitempty"`
+	StripchatPDKey    string `json:"stripchat_pdkey,omitempty"`
+	AffiliateWM       string `json:"affiliate_wm,omitempty"`
+	DiscordWebhookURL string `json:"discord_webhook_url,omitempty"`
 }
 
 // SaveSettings persists the shared upload credentials and the effective
@@ -66,8 +67,9 @@ func SaveSettings() error {
 		Upload18Key:     validPersistedValue(Config.Upload18Key),
 		DroploadKey:     validPersistedValue(Config.DroploadKey),
 		FileHostKey:     validPersistedValue(Config.FileHostKey),
-		StripchatPDKey:  validPersistedValue(Config.StripchatPDKey),
-		AffiliateWM:     validPersistedValue(Config.AffiliateWM),
+		StripchatPDKey:    validPersistedValue(Config.StripchatPDKey),
+		AffiliateWM:       validPersistedValue(Config.AffiliateWM),
+		DiscordWebhookURL: validPersistedValue(Config.DiscordWebhookURL),
 	}
 	ConfigMu.RUnlock()
 
@@ -128,6 +130,9 @@ func LoadSettings() error {
 		if v := validPersistedValue(s.AffiliateWM); v != "" {
 			Config.AffiliateWM = v
 		}
+		if v := validPersistedValue(s.DiscordWebhookURL); v != "" && Config.DiscordWebhookURL == "" {
+			Config.DiscordWebhookURL = v
+		}
 		ConfigMu.Unlock()
 	}
 
@@ -161,6 +166,7 @@ func LoadSettings() error {
 		s.FileHostKey = ""
 		s.StripchatPDKey = ""
 		s.AffiliateWM = ""
+		s.DiscordWebhookURL = ""
 	}
 
 	ConfigMu.Lock()

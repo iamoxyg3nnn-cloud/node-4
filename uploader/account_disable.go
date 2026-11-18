@@ -84,10 +84,9 @@ var (
 	lastAccountAlert   = map[string]time.Time{}
 )
 
-// accountAlertMinInterval is the in-process dedup window.  Cross-process and
-// cross-node dedup come from the fleet backoff cache + the manager's DB read
-// (see manager/host_alerts.go); this map only stops a hot retry loop.
-const accountAlertMinInterval = 23 * time.Hour
+// accountAlertMinInterval is the in-process dedup window to stop a hot retry loop.
+// Cross-node dedup and cooldowns are managed by the manager and notifier.
+const accountAlertMinInterval = 2 * time.Hour
 
 // notifyAccountDisabled fires the operator alert for a host that just hit an
 // account-level rejection.  Best-effort: never blocks or fails the upload.

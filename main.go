@@ -576,7 +576,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "discord-webhook-url",
 				Usage:   "Discord webhook URL for notifications",
-				EnvVars: []string{"DISCORD_WEBHOOK_URL"},
+				EnvVars: []string{"DISCORD_WEBHOOK_URL", "DISCORD_WEBHOOK", "DISCORD_BACKUP_WEBHOOK"},
 				Value:   "",
 			},
 			&cli.IntFlag{

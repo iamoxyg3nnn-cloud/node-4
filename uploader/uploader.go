@@ -728,6 +728,7 @@ func (m *MultiHostUploader) UploadSelectedWithCallback(filePath string, hosts []
 					m.log.Error("upload: %s has no working keys left — skipping it for %s (auto re-enables; rotate its keys to restore)", host, keysExhaustedCooldown)
 					disableHostFor(host, keysExhaustedCooldown, "all configured keys exhausted")
 					m.DisableHost(host)
+					notifyAccountDisabled(host, "all configured keys exhausted")
 				} else if isUploadAuthError(err) {
 					m.log.Error("upload: %s rejected our credentials — disabling it for the rest of this run", host)
 					m.DisableHost(host)
@@ -823,6 +824,7 @@ func (m *MultiHostUploader) UploadSelectedPriority(filePath string, hosts []stri
 				m.log.Error("upload: %s has no working keys left — skipping it for %s (auto re-enables; rotate its keys to restore)", host, keysExhaustedCooldown)
 				disableHostFor(host, keysExhaustedCooldown, "all configured keys exhausted")
 				m.DisableHost(host)
+				notifyAccountDisabled(host, "all configured keys exhausted")
 			} else if isUploadAuthError(err) {
 				m.log.Error("upload: %s rejected our credentials — disabling it for the rest of this run", host)
 				m.DisableHost(host)
