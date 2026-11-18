@@ -202,6 +202,9 @@ func (u *DroploadUploader) UploadWithProgress(filePath string, progress Progress
 					lastErr = nil
 					break
 				}
+				if isDroploadSizeLimitError(err) {
+					return "", lastErr
+				}
 				if bodyFullySent {
 					return "", lastErr
 				}
@@ -234,9 +237,30 @@ func isDroploadAuthError(err error) bool {
 		strings.Contains(msg, "api key is invalid") ||
 		strings.Contains(msg, "key is invalid") ||
 		strings.Contains(msg, "wrong api key") ||
+		strings.Contains(msg, "wrong auth") ||
+		strings.Contains(msg, "wrong_auth") ||
 		strings.Contains(msg, "authentication failed") ||
 		strings.Contains(msg, "unauthorized") ||
-		strings.Contains(msg, "not allowed to upload")
+		strings.Contains(msg, "not allowed to upload") ||
+		strings.Contains(msg, "status not ok: 403") ||
+		strings.Contains(msg, "status 403") ||
+		strings.Contains(msg, "status: 403") ||
+		strings.Contains(msg, "http 403") ||
+		strings.Contains(msg, "status not ok: 401") ||
+		strings.Contains(msg, "status 401") ||
+		strings.Contains(msg, "status: 401") ||
+		strings.Contains(msg, "http 401") ||
+		strings.Contains(msg, "forbidden")
+}
+
+func isDroploadSizeLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "413") ||
+		strings.Contains(msg, "payload too large") ||
+		strings.Contains(msg, "entity too large")
 }
 
 func isDroploadQuotaError(err error) bool {
@@ -252,7 +276,8 @@ func isDroploadQuotaError(err error) bool {
 		strings.Contains(msg, "upload limit") ||
 		strings.Contains(msg, "limit reached") ||
 		strings.Contains(msg, "maximum upload") ||
-		strings.Contains(msg, "over capacity")
+		strings.Contains(msg, "over capacity") ||
+		isDroploadSizeLimitError(err)
 }
 
 func (u *DroploadUploader) getUploadServer(key string) (string, error) {
@@ -336,6 +361,9 @@ func (u *DroploadUploader) uploadFile(filePath, key string, progress ProgressFun
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
+		if resp.StatusCode == http.StatusRequestEntityTooLarge {
+			return "", fmt.Errorf("upload failed: status 413 payload too large: %s", snippet(bodyBytes))
+		}
 		return "", fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 

@@ -2,14 +2,11 @@
 // is no longer on disk, by pulling a recoverable asset from one of the upload
 // hosts that still holds it.
 //
-// Two sources are supported:
+// Source supported:
 //   - Streamtape: the official API returns a Range-capable download ticket, so we
 //     grab only the first few MB of the (moov-at-front, faststart-remuxed) file,
 //     render a frame with ffmpeg, and return that local JPEG. No need to pull the
 //     whole file.
-//   - Vidara: the host renders its own per-video thumbnail and exposes it as the
-//     embed page's <meta property="og:image">, which we fetch with a plain HTTP
-//     GET and return as an image path.
 //
 // This package deliberately does NOT talk to Supabase or the image uploaders;
 // callers (the standalone backfill commands and the automated thumbnail sweep)
@@ -53,10 +50,6 @@ var streamAPI = "https://api.streamtape.com"
 // Cloudflare-fronted addresses are the durable path.
 var cloudflareIPs = []string{"104.21.96.46", "172.67.173.3"}
 
-// ogImageRe matches <meta property="og:image" content="..."/> on Vidara's
-// embed page. The thumbnail is video-specific (pointing at the CDN path).
-var ogImageRe = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']`)
-
 // ErrStreamFileNotFound is returned when Streamtape's dl endpoint reports that
 // the file has gone / is not downloadable under the configured account. It is a
 // permanent condition — retrying only wastes time — so the download loop treats
@@ -86,11 +79,6 @@ func ExtractStreamtapeCode(u string) string {
 		}
 	}
 	return u
-}
-
-// VidaraCode extracts the trailing file code from a Vidara share/embed URL.
-func VidaraCode(u string) string {
-	return ExtractStreamtapeCode(u)
 }
 
 // StreamtapeThumb downloads only the head of a Streamtape-hosted video and
@@ -141,98 +129,6 @@ func StreamtapeThumb(filecode, workDir string, login, key string, partialMB int,
 	_ = os.Remove(headPath)
 	_ = os.Remove(tailPath)
 	return thumbPath, nil
-}
-
-// ResolveVidaraImageURL fetches the Vidara embed page for a file code and
-// returns the video-specific og:image thumbnail URL, or ("", nil) if the page
-// has no og:image. client may be nil for a default HTTP client.
-func ResolveVidaraImageURL(code string, client *http.Client) (string, error) {
-	if code == "" {
-		return "", fmt.Errorf("bad Vidara file code")
-	}
-	if client == nil {
-		client = &http.Client{Timeout: 60 * time.Second}
-	}
-	pageURL := "https://vidarae.live/e/" + code
-	req, err := http.NewRequest("GET", pageURL, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("User-Agent", browserUA)
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("page status %d", resp.StatusCode)
-	}
-	m := ogImageRe.FindSubmatch(body)
-	if len(m) < 2 || len(m[1]) == 0 {
-		return "", nil
-	}
-	u := string(m[1])
-	u = strings.TrimPrefix(u, "//")
-	if !strings.HasPrefix(u, "http") {
-		u = "https://" + u
-	}
-	return u, nil
-}
-
-// VidaraThumb resolves the video-specific thumbnail for a Vidara embed URL by
-// scraping its og:image, downloads it, and returns the local image path. If the
-// page has no og:image it returns ("", nil).
-func VidaraThumb(embedURL, workDir string, client *http.Client) (string, error) {
-	code := VidaraCode(embedURL)
-	if code == "" {
-		return "", fmt.Errorf("bad Vidara URL %q", embedURL)
-	}
-	u, err := ResolveVidaraImageURL(code, client)
-	if err != nil {
-		return "", err
-	}
-	if u == "" {
-		return "", nil
-	}
-	if client == nil {
-		client = &http.Client{Timeout: 60 * time.Second}
-	}
-	// Download the thumbnail.
-	dreq, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return "", err
-	}
-	dreq.Header.Set("User-Agent", browserUA)
-	dreq.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
-	dresp, err := client.Do(dreq)
-	if err != nil {
-		return "", err
-	}
-	defer dresp.Body.Close()
-	if dresp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("download status %d", dresp.StatusCode)
-	}
-	ext := ".jpg"
-	ct := dresp.Header.Get("Content-Type")
-	if strings.Contains(strings.ToLower(ct), "webp") {
-		ext = ".webp"
-	}
-	dst := filepath.Join(workDir, "vidara_"+sanitizeName(code)+ext)
-	f, err := os.Create(dst)
-	if err != nil {
-		return "", err
-	}
-	if _, err := io.Copy(f, dresp.Body); err != nil {
-		f.Close()
-		_ = os.Remove(dst)
-		return "", err
-	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(dst)
-		return "", err
-	}
-	return dst, nil
 }
 
 // streamGrab downloads bytes [start, start+length) of the file to dstPath,

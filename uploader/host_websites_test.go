@@ -12,8 +12,8 @@ func TestHostWebsite(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"exact canonical", "Upload18", "https://upload18.org"},
-		{"different case", "upload18", "https://upload18.org"},
+		{"exact canonical", "Upload18", "https://upload18.to"},
+		{"different case", "upload18", "https://upload18.to"},
 		{"video host", "VoeSX", "https://voe.sx"},
 		{"image host", "ImgBB", "https://imgbb.com"},
 		{"host not in map", "SomeNewHost", ""},
@@ -28,8 +28,8 @@ func TestHostWebsite(t *testing.T) {
 	// Every managed uploadkeys host must resolve — the admin panel is built
 	// from that list, and a missing entry there would render a dead row.
 	for _, host := range []string{
-		"VoeSX", "Streamtape", "Mixdrop", "Vidara", "LuluStream", "DoodStream",
-		"Upload18", "Dropload", "Videro", "FileHost",
+		"VoeSX", "Streamtape", "Mixdrop", "LuluStream", "DoodStream",
+		"Upload18", "Dropload", "FileHost",
 		"Catbox", "ImgBB", "FreeImage", "ImgPile", "ImgChest",
 	} {
 		if HostWebsite(host) == "" {

@@ -53,6 +53,9 @@ func isAccountDisabledError(err error) bool {
 		"account is locked",
 		"account may be locked",
 		"account is disabled",
+		"api_access_required",
+		"verify your website first",
+		"api access for this account needs approval",
 	} {
 		if strings.Contains(msg, needle) {
 			return true

@@ -55,7 +55,7 @@ func newHostBackoffTestClient(t *testing.T, fake *fakeHostBackoffDB) *Client {
 func TestGetHostBackoffsParsesRows(t *testing.T) {
 	fake := &fakeHostBackoffDB{rows: `[
 		{"host":"VoeSX","backoff_until":"2026-09-22T18:00:00Z","reason":"daily api limit"},
-		{"host":"Vidara","backoff_until":"2026-09-22T19:30:00Z"},
+		{"host":"Dropload","backoff_until":"2026-09-22T19:30:00Z"},
 		{"host":"","backoff_until":"2026-09-22T20:00:00Z"},
 		{"host":"Broken","backoff_until":"not-a-timestamp"}
 	]`}
@@ -72,8 +72,8 @@ func TestGetHostBackoffsParsesRows(t *testing.T) {
 	if !got["VoeSX"].Equal(want) {
 		t.Errorf("VoeSX expiry = %v, want %v", got["VoeSX"], want)
 	}
-	if _, ok := got["Vidara"]; !ok {
-		t.Error("Vidara row missing")
+	if _, ok := got["Dropload"]; !ok {
+		t.Error("Dropload row missing")
 	}
 	if _, ok := got[""]; ok {
 		t.Error("blank host must be dropped")

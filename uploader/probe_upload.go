@@ -119,8 +119,6 @@ func deleteProbeUpload(host, secret, login, link string) {
 	switch host {
 	case "VoeSX":
 		endpoint = fmt.Sprintf("%s/file/delete?key=%s&del_code=%s", voeSXAPIBase, url.QueryEscape(secret), url.QueryEscape(code))
-	case "Vidara":
-		endpoint = fmt.Sprintf("%s/video/delete?api_key=%s&filecode=%s", vidaraAPIBase, url.QueryEscape(secret), url.QueryEscape(code))
 	case "LuluStream":
 		code = strings.TrimSuffix(code, ".html")
 		endpoint = fmt.Sprintf("%s/file/delete?key=%s&file_code=%s", luluStreamAPIBase, url.QueryEscape(secret), url.QueryEscape(code))
@@ -130,8 +128,6 @@ func deleteProbeUpload(host, secret, login, link string) {
 		endpoint = fmt.Sprintf("%s/file/delete?login=%s&key=%s&file=%s", streamtapeAPIBase, url.QueryEscape(login), url.QueryEscape(secret), url.QueryEscape(code))
 	case "Dropload":
 		endpoint = fmt.Sprintf("%s/file/delete?key=%s&file_code=%s", droploadAPIBase, url.QueryEscape(secret), url.QueryEscape(code))
-	case "Videro":
-		endpoint = fmt.Sprintf("%s/file/delete?key=%s&file_code=%s", videroAPIBase, url.QueryEscape(secret), url.QueryEscape(code))
 	case "FileHost":
 		endpoint = fmt.Sprintf("%s/file/delete?key=%s&file_code=%s", fileHostAPIBase, url.QueryEscape(secret), url.QueryEscape(code))
 	default:
@@ -178,34 +174,6 @@ func VerifyVoeSX(apiKey string) ProbeResult {
 		}
 	}
 	deleteProbeUpload("VoeSX", apiKey, "", link)
-	return ProbeResult{OK: true, Message: "upload verified"}
-}
-
-// VerifyVidara is the Vidara equivalent of VerifyVoeSX.
-func VerifyVidara(apiKey string) ProbeResult {
-	if res := ProbeVidara(apiKey); !res.OK || res.Rejected || res.Quota {
-		return res
-	}
-	file, cleanup, err := writeProbeVideo()
-	if err != nil {
-		return ProbeResult{Message: err.Error()}
-	}
-	defer cleanup()
-
-	u := &VidaraUploader{client: probeUploadClient}
-	link, err := u.uploadFile(file, apiKey, nil)
-	if err != nil {
-		msg := probeErrText(err)
-		switch {
-		case isDailyLimitError(err):
-			return ProbeResult{Quota: true, Message: "daily upload limit: " + msg}
-		case isVidaraAuthError(err) || isAuthHTTPStatus(err):
-			return ProbeResult{Rejected: true, Message: msg}
-		default:
-			return ProbeResult{Message: msg}
-		}
-	}
-	deleteProbeUpload("Vidara", apiKey, "", link)
 	return ProbeResult{OK: true, Message: "upload verified"}
 }
 
@@ -360,36 +328,6 @@ func VerifyDropload(apiKey string) ProbeResult {
 		}
 	}
 	deleteProbeUpload("Dropload", apiKey, "", link)
-	return ProbeResult{OK: true, Message: "upload verified"}
-}
-
-// VerifyVidero performs a live test upload to videro.my.
-func VerifyVidero(apiKey string) ProbeResult {
-	if res := ProbeVidero(apiKey); !res.OK || res.Rejected || res.Quota {
-		return res
-	}
-	file, cleanup, err := writeProbeVideo()
-	if err != nil {
-		return ProbeResult{Message: err.Error()}
-	}
-	defer cleanup()
-
-	u := &VideroUploader{
-		client: probeUploadClient,
-	}
-	link, err := u.uploadFile(file, apiKey, nil)
-	if err != nil {
-		msg := probeErrText(err)
-		switch {
-		case isVideroQuotaError(err):
-			return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
-		case isVideroAuthError(err) && !looksLikeBlockPageText(msg):
-			return ProbeResult{Rejected: true, Message: msg}
-		default:
-			return ProbeResult{Message: msg}
-		}
-	}
-	deleteProbeUpload("Videro", apiKey, "", link)
 	return ProbeResult{OK: true, Message: "upload verified"}
 }
 

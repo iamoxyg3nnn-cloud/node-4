@@ -401,12 +401,10 @@ func (p *Pipeline) stageUploadVideos(ch *Channel) error {
 		cfg.StreamtapeKey,
 		cfg.MixdropEmail,
 		cfg.MixdropToken,
-		cfg.VidaraKey,
 		cfg.LuluStreamKey,
 		cfg.DoodStreamKey,
 		cfg.Upload18Key,
 		cfg.DroploadKey,
-		cfg.VideroKey,
 		cfg.FileHostKey,
 		ch,
 	)

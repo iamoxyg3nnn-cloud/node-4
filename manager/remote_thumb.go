@@ -16,7 +16,7 @@ import (
 
 // remoteThumbCooldown is how long a single node waits before re-attempting a
 // recording whose remote-thumbnail recovery failed. It prevents the every-30-min
-// sweep from hammering Streamtape/Vidara with the same unfixable file on every
+// sweep from hammering Streamtape with the same unfixable file on every
 // tick, while still retrying failures on a normal cadence.
 const remoteThumbCooldown = 3 * time.Hour
 
@@ -30,22 +30,9 @@ var (
 	remoteThumbLast = map[string]time.Time{}
 )
 
-// remoteThumbVidaraHTTP is a shared browser-like HTTP client for fetching Vidara
-// og:image thumbnails (Vidara's CDN 403s default curl UAs).
-var remoteThumbVidaraHTTP = &http.Client{
-	Timeout: 60 * time.Second,
-	Transport: &http.Transport{
-		TLSHandshakeTimeout:   30 * time.Second,
-		ResponseHeaderTimeout: 45 * time.Second,
-		MaxIdleConns:          10,
-		IdleConnTimeout:       90 * time.Second,
-	},
-}
-
 // SyncRemoteThumbnails restores a static thumbnail for recordings whose local
 // video is no longer on disk but which still exist on an upload host — Streamtape
-// (partial Range download of the head, render a frame) or Vidara (host-rendered
-// og:image). It runs alongside the cheap DB->DB copy in server.SyncRecordingsThumbnails.
+// (partial Range download of the head, render a frame). It runs alongside the cheap DB->DB copy in server.SyncRecordingsThumbnails.
 //
 // It is safe to call on every sweep from every node: records whose recovery
 // succeeds drop out of the missing-thumbnail set, and failures are cooled down
@@ -138,16 +125,13 @@ func (m *Manager) SyncRemoteThumbnails() {
 			continue
 		}
 		// Find a recovery source among the recording's upload links.
-		var stCode, vidaraURL string
+		var stCode string
 		for _, l := range linksByRec[rec.ID] {
 			host := strings.ToLower(l.Host)
-			switch {
-			case strings.Contains(host, "streamtape") && l.URL != "":
+			if strings.Contains(host, "streamtape") && l.URL != "" {
 				if c := recovery.ExtractStreamtapeCode(l.URL); c != "" {
 					stCode = c
 				}
-			case strings.Contains(host, "vidara") && l.URL != "":
-				vidaraURL = l.URL
 			}
 		}
 
@@ -157,23 +141,11 @@ func (m *Manager) SyncRemoteThumbnails() {
 		)
 		if stCode != "" && stLogin != "" && stKey != "" {
 			attempted++
-			// Prefer Streamtape (a real video frame); fall back to Vidara's
-			// og:image if the Streamtape grab fails or the code is stale.
 			if img, err := recovery.StreamtapeThumb(stCode, workDir, stLogin, stKey, 4, 2, 0); err != nil {
-				log.Printf("[remote-thumb] %s: streamtape recover failed (%v) — trying Vidara", rec.Filename, err)
+				log.Printf("[remote-thumb] %s: streamtape recover failed (%v)", rec.Filename, err)
 				recoverRR = err
 			} else {
 				localImg = img
-			}
-		}
-		if localImg == "" && vidaraURL != "" {
-			attempted++
-			if img, err := recovery.VidaraThumb(vidaraURL, workDir, remoteThumbVidaraHTTP); err != nil {
-				log.Printf("[remote-thumb] %s: vidara recover failed: %v", rec.Filename, err)
-				recoverRR = err
-			} else {
-				localImg = img
-				recoverRR = nil
 			}
 		}
 		if recoverRR != nil && localImg == "" {
@@ -182,8 +154,7 @@ func (m *Manager) SyncRemoteThumbnails() {
 			continue
 		}
 		if localImg == "" {
-			// e.g. Vidara page had no og:image — not currently fixable.
-			log.Printf("[remote-thumb] %s: no recoverable thumbnail (streamtape ticket or Vidara og:image unavailable)", rec.Filename)
+			log.Printf("[remote-thumb] %s: no recoverable thumbnail (streamtape ticket unavailable)", rec.Filename)
 			markRemoteThumbFailed(rec.Filename)
 			continue
 		}

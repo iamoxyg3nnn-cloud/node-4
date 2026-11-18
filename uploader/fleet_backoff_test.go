@@ -95,15 +95,15 @@ func TestFleetBackoffsReplacedNotMerged(t *testing.T) {
 	defer clearTimedDisablesForTest()
 
 	SetFleetHostBackoffs(map[string]time.Time{
-		"VoeSX":  time.Now().Add(time.Hour),
-		"Vidara": time.Now().Add(time.Hour),
+		"VoeSX":    time.Now().Add(time.Hour),
+		"Dropload": time.Now().Add(time.Hour),
 	})
-	if !isFleetHostBackedOff("Vidara") {
-		t.Fatal("Vidara should be backed off")
+	if !isFleetHostBackedOff("Dropload") {
+		t.Fatal("Dropload should be backed off")
 	}
 
 	SetFleetHostBackoffs(map[string]time.Time{"VoeSX": time.Now().Add(time.Hour)})
-	if isFleetHostBackedOff("Vidara") {
+	if isFleetHostBackedOff("Dropload") {
 		t.Fatal("a host dropped from the shared table must stop being backed off")
 	}
 	if !isFleetHostBackedOff("VoeSX") {
@@ -131,19 +131,19 @@ func TestNoFleetBackoffByDefault(t *testing.T) {
 // skipped even when the uploader itself has never seen that host fail.
 func TestFleetBackoffSurvivesUploaderError(t *testing.T) {
 	defer clearTimedDisablesForTest()
-	SetFleetHostBackoffs(map[string]time.Time{"Vidara": time.Now().Add(time.Hour)})
+	SetFleetHostBackoffs(map[string]time.Time{"Dropload": time.Now().Add(time.Hour)})
 
 	calls := 0
 	m := &MultiHostUploader{
 		hosts: map[string]uploaderFunc{
-			"Vidara": func(_ string, _ ProgressFunc) (string, error) {
+			"Dropload": func(_ string, _ ProgressFunc) (string, error) {
 				calls++
 				return "", errors.New("should not be called")
 			},
 		},
 		log: &nilLogger{},
 	}
-	_ = m.UploadSelectedPriority("f.mp4", []string{"Vidara"}, "")
+	_ = m.UploadSelectedPriority("f.mp4", []string{"Dropload"}, "")
 	if calls != 0 {
 		t.Fatalf("priority path must honour the fleet backoff, got %d call(s)", calls)
 	}

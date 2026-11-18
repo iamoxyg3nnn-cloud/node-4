@@ -389,12 +389,6 @@ func main() {
 				Value:   "",
 			},
 			&cli.StringFlag{
-				Name:    "vidara-key",
-				Usage:   "API key for Vidara uploads",
-				EnvVars: []string{"VIDARA_KEY"},
-				Value:   "",
-			},
-			&cli.StringFlag{
 				Name:    "lulustream-key",
 				Usage:   "API key for LuluStream uploads (comma-separated for rotation)",
 				EnvVars: []string{"LULUSTREAM_KEY"},
@@ -416,12 +410,6 @@ func main() {
 				Name:    "dropload-key",
 				Usage:   "API key for Dropload uploads (comma-separated for rotation)",
 				EnvVars: []string{"DROPLOAD_KEY", "DROPLOAD_API_KEY"},
-				Value:   "",
-			},
-			&cli.StringFlag{
-				Name:    "videro-key",
-				Usage:   "API key for Videro uploads (comma-separated for rotation)",
-				EnvVars: []string{"VIDERO_KEY", "VIDERO_API_KEY"},
 				Value:   "",
 			},
 			&cli.StringFlag{

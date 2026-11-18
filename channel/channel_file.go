@@ -1612,12 +1612,10 @@ func configuredUploadHosts() []string {
 		cfg.StreamtapeKey,
 		cfg.MixdropEmail,
 		cfg.MixdropToken,
-		cfg.VidaraKey,
 		cfg.LuluStreamKey,
 		cfg.DoodStreamKey,
 		cfg.Upload18Key,
 		cfg.DroploadKey,
-		cfg.VideroKey,
 		cfg.FileHostKey,
 		nil,
 	)
@@ -1700,12 +1698,10 @@ func uploadOrphanedFile(filePath, thumbURL, spriteURL, previewURL string, thumbM
 		cfg.StreamtapeKey,
 		cfg.MixdropEmail,
 		cfg.MixdropToken,
-		cfg.VidaraKey,
 		cfg.LuluStreamKey,
 		cfg.DoodStreamKey,
 		cfg.Upload18Key,
 		cfg.DroploadKey,
-		cfg.VideroKey,
 		cfg.FileHostKey,
 		nil, // no logger for orphan recovery
 	)
@@ -2000,7 +1996,7 @@ func recoverOrphanMetadataFromJournal(filePath, filename, fileHash string) (bool
 	dur, _ := VideoDurationSeconds(filePath)
 
 	var embedURL string
-	for _, host := range []string{"VOE.sx", "LuluStream", "DoodStream", "Upload18", "Vidara", "Mixdrop", "Streamtape"} {
+	for _, host := range []string{"VOE.sx", "LuluStream", "DoodStream", "Upload18", "Mixdrop", "Streamtape"} {
 		if link, ok := links[host]; ok && link != "" {
 			embedURL = embedURLFromLink(host, link)
 			if embedURL != "" {

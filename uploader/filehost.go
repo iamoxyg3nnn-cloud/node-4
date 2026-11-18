@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -147,6 +148,13 @@ func (u *FileHostUploader) UploadWithProgress(filePath string, progress Progress
 		return "", fmt.Errorf("FileHost API key not configured")
 	}
 
+	// FileHost is fronted by Cloudflare proxy which enforces a strict 100MB
+	// request body limit. Pre-check file size to fail fast and prevent wasting
+	// upload bandwidth on files that Cloudflare will reject with HTTP 413.
+	if fi, err := os.Stat(filePath); err == nil && fi.Size() >= 100*1024*1024 {
+		return "", fmt.Errorf("filehost: file size (%d bytes) exceeds host Cloudflare 100MB limit", fi.Size())
+	}
+
 	release, ok := acquireHostSem("FileHost")
 	if !ok {
 		return "", fmt.Errorf("filehost: upload slot busy — host saturated, skipped this attempt (deadline exceeded)")
@@ -193,6 +201,9 @@ func (u *FileHostUploader) UploadWithProgress(filePath string, progress Progress
 					lastErr = nil
 					break
 				}
+				if isFileHostSizeLimitError(err) {
+					return "", lastErr
+				}
 				if bodyFullySent {
 					return "", lastErr
 				}
@@ -225,8 +236,30 @@ func isFileHostAuthError(err error) bool {
 		strings.Contains(msg, "api key is invalid") ||
 		strings.Contains(msg, "key is invalid") ||
 		strings.Contains(msg, "wrong api key") ||
+		strings.Contains(msg, "wrong auth") ||
+		strings.Contains(msg, "wrong_auth") ||
 		strings.Contains(msg, "authentication failed") ||
-		strings.Contains(msg, "unauthorized")
+		strings.Contains(msg, "unauthorized") ||
+		strings.Contains(msg, "status not ok: 403") ||
+		strings.Contains(msg, "status 403") ||
+		strings.Contains(msg, "status: 403") ||
+		strings.Contains(msg, "http 403") ||
+		strings.Contains(msg, "status not ok: 401") ||
+		strings.Contains(msg, "status 401") ||
+		strings.Contains(msg, "status: 401") ||
+		strings.Contains(msg, "http 401") ||
+		strings.Contains(msg, "forbidden")
+}
+
+func isFileHostSizeLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "413") ||
+		strings.Contains(msg, "payload too large") ||
+		strings.Contains(msg, "entity too large") ||
+		strings.Contains(msg, "cloudflare 100mb limit")
 }
 
 func isFileHostQuotaError(err error) bool {
@@ -241,7 +274,8 @@ func isFileHostQuotaError(err error) bool {
 		strings.Contains(msg, "no space left") ||
 		strings.Contains(msg, "upload limit") ||
 		strings.Contains(msg, "limit reached") ||
-		strings.Contains(msg, "over capacity")
+		strings.Contains(msg, "over capacity") ||
+		isFileHostSizeLimitError(err)
 }
 
 func (u *FileHostUploader) getUploadServer(key string) (string, error) {
@@ -309,6 +343,9 @@ func (u *FileHostUploader) uploadFile(filePath, key string, progress ProgressFun
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
+		if resp.StatusCode == http.StatusRequestEntityTooLarge {
+			return "", fmt.Errorf("upload failed with status 413: file exceeds Cloudflare 100MB limit: %s", snippet(bodyBytes))
+		}
 		return "", fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 

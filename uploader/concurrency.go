@@ -26,12 +26,10 @@ var (
 		"VOE.sx":     make(chan struct{}, defaultHostConcurrency),
 		"Streamtape": make(chan struct{}, defaultHostConcurrency),
 		"Mixdrop":    make(chan struct{}, defaultHostConcurrency),
-		"Vidara":     make(chan struct{}, defaultHostConcurrency),
 		"LuluStream": make(chan struct{}, defaultHostConcurrency),
 		"DoodStream": make(chan struct{}, defaultHostConcurrency),
 		"Upload18":   make(chan struct{}, defaultHostConcurrency),
 		"Dropload":   make(chan struct{}, defaultHostConcurrency),
-		"Videro":     make(chan struct{}, defaultHostConcurrency),
 		"FileHost":   make(chan struct{}, defaultHostConcurrency),
 		"AnonMP4":    make(chan struct{}, defaultHostConcurrency),
 		// Image upload hosts (thumbnails, sprites, previews)

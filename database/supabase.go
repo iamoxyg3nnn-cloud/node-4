@@ -1574,7 +1574,7 @@ func (c *Client) CountUploadedVideosBelowDuration(thresholdSeconds float64) (int
 }
 
 // RecordingWithLinks is one uploaded recording paired with the URLs it was
-// uploaded to, keyed by upload host (e.g. "GoFile", "Streamtape", "Vidara").
+// uploaded to, keyed by upload host (e.g. "GoFile", "Streamtape", "Upload18").
 type RecordingWithLinks struct {
 	ID        string            `json:"id"`
 	Username  string            `json:"username"`

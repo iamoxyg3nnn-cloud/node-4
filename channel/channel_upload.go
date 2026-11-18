@@ -26,12 +26,6 @@ func embedURLFromLink(host, link string) string {
 		return link
 	case "Mixdrop":
 		return link
-	case "Vidara":
-		code := link[strings.LastIndex(link, "/")+1:]
-		if code != "" {
-			return "https://vidara.so/e/" + code
-		}
-		return link
 	case "LuluStream":
 		code := strings.TrimSuffix(link[strings.LastIndex(link, "/")+1:], ".html")
 		if code != "" {
@@ -49,7 +43,7 @@ func embedURLFromLink(host, link string) string {
 	case "Upload18", "upload18":
 		code := link[strings.LastIndex(link, "/")+1:]
 		if code != "" {
-			return "https://upload18.org/play/index/" + code
+			return "https://upload18.to/play/index/" + code
 		}
 		return link
 	}
@@ -110,12 +104,10 @@ func (ch *Channel) uploadFile(filePath string, thumbURL, spriteURL, previewURL s
 		cfg.StreamtapeKey,
 		cfg.MixdropEmail,
 		cfg.MixdropToken,
-		cfg.VidaraKey,
 		cfg.LuluStreamKey,
 		cfg.DoodStreamKey,
 		cfg.Upload18Key,
 		cfg.DroploadKey,
-		cfg.VideroKey,
 		cfg.FileHostKey,
 		ch, // Channel implements uploader.Logger
 	)

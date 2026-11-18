@@ -368,13 +368,13 @@ func TestLoadSettingsLocalCredentialsWinOverCentral(t *testing.T) {
 	defer func() { Config = oldConfig }()
 
 	// Central blob holds the OLD (stale) rotated-away credentials.
-	seed := []byte(`{"voesx_api_key":"old-voe","streamtape_login":"old-st-login","streamtape_key":"old-st-key","vidara_key":"old-vidara","affiliate_wm":"wm-1"}`)
+	seed := []byte(`{"voesx_api_key":"old-voe","streamtape_login":"old-st-login","streamtape_key":"old-st-key","dropload_key":"old-dropload","affiliate_wm":"wm-1"}`)
 	Config = &entity.Config{SupabaseURL: ts.URL, SupabaseAPIKey: "test-key"}
 	if err := SaveSettingsToDBForKey("dvr_settings", seed); err != nil {
 		t.Fatalf("seed central blob: %v", err)
 	}
 
-	// Local config (env/flag path) holds the NEW rotated credentials. Vidara is
+	// Local config (env/flag path) holds the NEW rotated credentials. Dropload is
 	// intentionally left empty locally — the central value must seed it.
 	Config.VoeSXAPIKey = "new-voe"
 	Config.StreamtapeLogin = "new-st-login"
@@ -392,8 +392,8 @@ func TestLoadSettingsLocalCredentialsWinOverCentral(t *testing.T) {
 	if Config.StreamtapeKey != "new-st-key" {
 		t.Errorf("streamtape_key = %q, want new-st-key (local must win)", Config.StreamtapeKey)
 	}
-	if Config.VidaraKey != "old-vidara" {
-		t.Errorf("vidara = %q, want old-vidara (central seeds empty local field)", Config.VidaraKey)
+	if Config.DroploadKey != "old-dropload" {
+		t.Errorf("dropload = %q, want old-dropload (central seeds empty local field)", Config.DroploadKey)
 	}
 
 	// SaveSettings must converge the fleet onto the new values.
@@ -413,8 +413,8 @@ func TestLoadSettingsLocalCredentialsWinOverCentral(t *testing.T) {
 	if err := LoadSettings(); err != nil {
 		t.Fatalf("LoadSettings (no local): %v", err)
 	}
-	if Config.StreamtapeKey != "new-st-key" || Config.VidaraKey != "old-vidara" {
-		t.Errorf("seed-only node = st:%q vidara:%q, want central values", Config.StreamtapeKey, Config.VidaraKey)
+	if Config.StreamtapeKey != "new-st-key" || Config.DroploadKey != "old-dropload" {
+		t.Errorf("seed-only node = st:%q dropload:%q, want central values", Config.StreamtapeKey, Config.DroploadKey)
 	}
 }
 

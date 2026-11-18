@@ -679,12 +679,10 @@ type UpdateConfigRequest struct {
 	StreamtapeKey   string `json:"streamtape_key" form:"streamtape_key"`
 	MixdropEmail    string `json:"mixdrop_email" form:"mixdrop_email"`
 	MixdropToken    string `json:"mixdrop_token" form:"mixdrop_token"`
-	VidaraKey       string `json:"vidara_key" form:"vidara_key"`
 	LuluStreamKey   string `json:"lulustream_key" form:"lulustream_key"`
 	DoodStreamKey   string `json:"doodstream_key" form:"doodstream_key"`
 	Upload18Key     string `json:"upload18_key" form:"upload18_key"`
 	DroploadKey     string `json:"dropload_key" form:"dropload_key"`
-	VideroKey       string `json:"videro_key" form:"videro_key"`
 	FileHostKey     string `json:"filehost_key" form:"filehost_key"`
 	StripchatPDKey  string `json:"stripchat_pdkey" form:"stripchat_pdkey"`
 	AffiliateWM     string `json:"affiliate_wm" form:"affiliate_wm"`
@@ -762,17 +760,17 @@ func UpdateConfig(c *gin.Context) {
 		server.ConfigMu.Unlock()
 	}
 
-	// Update uploader credentials (VOE.sx / Streamtape / Mixdrop / Vidara /
-	// LuluStream / DoodStream). SyncLegacyForm saves the edit and verifies
-	// every new/rotated credential in this request, so the verdict can be
-	// returned to the caller below.
+	// Update uploader credentials (VOE.sx / Streamtape / Mixdrop /
+	// LuluStream / DoodStream / Upload18 / Dropload / FileHost). SyncLegacyForm
+	// saves the edit and verifies every new/rotated credential in this request,
+	// so the verdict can be returned to the caller below.
 	var keyVerdicts []uploadkeys.Verdict
-	if req.VoeSXAPIKey != "" || req.StreamtapeLogin != "" || req.StreamtapeKey != "" || req.MixdropEmail != "" || req.MixdropToken != "" || req.VidaraKey != "" || req.LuluStreamKey != "" || req.DoodStreamKey != "" || req.Upload18Key != "" || req.DroploadKey != "" || req.VideroKey != "" || req.FileHostKey != "" {
-		server.UpdateUploaderCredentials(req.VoeSXAPIKey, req.StreamtapeLogin, req.StreamtapeKey, req.MixdropEmail, req.MixdropToken, req.VidaraKey, req.LuluStreamKey, req.DoodStreamKey, req.Upload18Key, req.DroploadKey, req.VideroKey, req.FileHostKey)
+	if req.VoeSXAPIKey != "" || req.StreamtapeLogin != "" || req.StreamtapeKey != "" || req.MixdropEmail != "" || req.MixdropToken != "" || req.LuluStreamKey != "" || req.DoodStreamKey != "" || req.Upload18Key != "" || req.DroploadKey != "" || req.FileHostKey != "" {
+		server.UpdateUploaderCredentials(req.VoeSXAPIKey, req.StreamtapeLogin, req.StreamtapeKey, req.MixdropEmail, req.MixdropToken, req.LuluStreamKey, req.DoodStreamKey, req.Upload18Key, req.DroploadKey, req.FileHostKey)
 		// Mirror the submitted credentials into the central upload-key store
 		// so this legacy rotation is fleet-wide and is not overwritten by the
 		// central set on the next sync.
-		keyVerdicts = uploadkeys.SyncLegacyForm(req.VoeSXAPIKey, req.StreamtapeLogin, req.StreamtapeKey, req.MixdropEmail, req.MixdropToken, req.VidaraKey, req.LuluStreamKey, req.DoodStreamKey, req.Upload18Key, req.DroploadKey, req.VideroKey, req.FileHostKey)
+		keyVerdicts = uploadkeys.SyncLegacyForm(req.VoeSXAPIKey, req.StreamtapeLogin, req.StreamtapeKey, req.MixdropEmail, req.MixdropToken, req.LuluStreamKey, req.DoodStreamKey, req.Upload18Key, req.DroploadKey, req.FileHostKey)
 	}
 
 	if err := server.SaveSettings(); err != nil {
@@ -1401,12 +1399,6 @@ func embedURLForHostLink(host, link string) string {
 		}
 		return link
 	}
-	if strings.Contains(normalizedHost, "vidara") || strings.Contains(normalizedLink, "vidara.so/") {
-		if code := extractFileCode(link); code != "" {
-			return "https://vidara.so/e/" + code
-		}
-		return link
-	}
 	if strings.Contains(normalizedHost, "lulustream") ||
 		strings.Contains(normalizedLink, "lulustream.com/") ||
 		strings.Contains(normalizedLink, "luluvdo.com/") {
@@ -1428,21 +1420,15 @@ func embedURLForHostLink(host, link string) string {
 		}
 		return link
 	}
-	if strings.Contains(normalizedHost, "upload18") || strings.Contains(normalizedLink, "upload18.org/") {
+	if strings.Contains(normalizedHost, "upload18") || strings.Contains(normalizedLink, "upload18.org/") || strings.Contains(normalizedLink, "upload18.to/") {
 		if code := extractFileCode(link); code != "" {
-			return "https://upload18.org/play/index/" + code
+			return "https://upload18.to/play/index/" + code
 		}
 		return link
 	}
 	if strings.Contains(normalizedHost, "dropload") || strings.Contains(normalizedHost, "dr0pstream") || strings.Contains(normalizedLink, "dropload.co/") || strings.Contains(normalizedLink, "dr0pstream.com/") {
 		if code := extractFileCode(link); code != "" {
 			return "https://dropload.co/e/" + code
-		}
-		return link
-	}
-	if strings.Contains(normalizedHost, "videro") || strings.Contains(normalizedLink, "videro.my/") {
-		if code := extractFileCode(link); code != "" {
-			return "https://videro.my/e/" + code
 		}
 		return link
 	}
@@ -1485,11 +1471,6 @@ func videoURLForHostLink(host, link string) string {
 			return "https://mixdrop.ag/e/" + code
 		}
 		return link
-	case strings.Contains(normalizedHost, "vidara") || strings.Contains(normalizedLink, "vidara.so/"):
-		if code := extractFileCode(link); code != "" {
-			return "https://vidara.so/e/" + code
-		}
-		return link
 	case strings.Contains(normalizedHost, "lulustream") ||
 		strings.Contains(normalizedLink, "lulustream.com/") ||
 		strings.Contains(normalizedLink, "luluvdo.com/"):
@@ -1504,19 +1485,14 @@ func videoURLForHostLink(host, link string) string {
 			return "https://dood.to/e/" + code
 		}
 		return link
-	case strings.Contains(normalizedHost, "upload18") || strings.Contains(normalizedLink, "upload18.org/"):
+	case strings.Contains(normalizedHost, "upload18") || strings.Contains(normalizedLink, "upload18.org/") || strings.Contains(normalizedLink, "upload18.to/"):
 		if code := extractFileCode(link); code != "" {
-			return "https://upload18.org/play/index/" + code
+			return "https://upload18.to/play/index/" + code
 		}
 		return link
 	case strings.Contains(normalizedHost, "dropload") || strings.Contains(normalizedHost, "dr0pstream") || strings.Contains(normalizedLink, "dropload.co/") || strings.Contains(normalizedLink, "dr0pstream.com/"):
 		if code := extractFileCode(link); code != "" {
 			return "https://dropload.co/e/" + code
-		}
-		return link
-	case strings.Contains(normalizedHost, "videro") || strings.Contains(normalizedLink, "videro.my/"):
-		if code := extractFileCode(link); code != "" {
-			return "https://videro.my/e/" + code
 		}
 		return link
 	case strings.Contains(normalizedHost, "filehost") || strings.Contains(normalizedLink, "filehost.net/"):

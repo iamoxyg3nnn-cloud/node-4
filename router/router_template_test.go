@@ -35,7 +35,7 @@ func loadAllTemplates(t *testing.T) *template.Template {
 
 // renderTemplate executes one template and fails the test if execution errors
 // OR the output is truncated (missing the closing tag).  A template action
-// referencing a nonexistent field (e.g. the old {{ .VidaraKeyValue }} on
+// referencing a nonexistent field (e.g. an invalid field like {{ .NonExistentField }} on
 // IndexData) aborts rendering mid-response — the browser then gets a page
 // without the trailing <script> block and every inline onclick throws
 // "X is not defined".  These tests catch that class of regression.
@@ -55,7 +55,7 @@ func renderTemplate(t *testing.T, name string, data any) string {
 func TestIndexTemplateRendersCompletely(t *testing.T) {
 	out := renderTemplate(t, "index.html", &IndexData{
 		Config: &entity.Config{
-			VidaraKey:       "test-vidara-key",
+			LuluStreamKey:   "test-lulustream-key",
 			CfClearance:     "test-clearance",
 			StreamtapeLogin: "test-login",
 			StreamtapeKey:   "test-st-key",
@@ -78,8 +78,8 @@ func TestIndexTemplateRendersCompletely(t *testing.T) {
 			Percent: 47,
 		},
 	})
-	if !strings.Contains(out, `name="vidara_key" value="test-vidara-key"`) {
-		t.Fatalf("index.html render missing vidara_key value (template action failed?)\noutput tail:\n%s", out[len(out)-400:])
+	if !strings.Contains(out, `name="lulustream_key" value="test-lulustream-key"`) {
+		t.Fatalf("index.html render missing lulustream_key value (template action failed?)\noutput tail:\n%s", out[len(out)-400:])
 	}
 }
 

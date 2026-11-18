@@ -230,12 +230,10 @@ type Config struct {
 	StreamtapeKey   string
 	MixdropEmail    string
 	MixdropToken    string
-	VidaraKey       string
 	LuluStreamKey   string
 	DoodStreamKey   string
 	Upload18Key     string
 	DroploadKey     string
-	VideroKey       string
 	FileHostKey     string
 	CatboxProxyURL  string
 

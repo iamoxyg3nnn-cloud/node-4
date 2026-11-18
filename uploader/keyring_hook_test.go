@@ -29,13 +29,13 @@ func TestKeyRingDeathHookReportsRotatedKey(t *testing.T) {
 	t.Cleanup(func() { SetKeyDeathHook(nil) })
 
 	kr := newKeyRing("k1,k2")
-	kr.host = "Vidara"
+	kr.host = "Dropload"
 	kr.rotateReason("authentication rejected")
 	if len(got) != 1 {
 		t.Fatalf("hook reports = %d, want 1: %+v", len(got), got)
 	}
-	if got[0].host != "Vidara" || got[0].key != "k1" || got[0].reason != "authentication rejected" {
-		t.Fatalf("got %+v, want {Vidara k1 authentication rejected}", got[0])
+	if got[0].host != "Dropload" || got[0].key != "k1" || got[0].reason != "authentication rejected" {
+		t.Fatalf("got %+v, want {Dropload k1 authentication rejected}", got[0])
 	}
 	if kr.current() != "k2" {
 		t.Fatalf("current = %q, want k2", kr.current())
@@ -71,14 +71,14 @@ func TestKeyRingDeathHookNilIsSafe(t *testing.T) {
 // its host label so death reports can be attributed.
 func TestLabeledConstructorsTagHosts(t *testing.T) {
 	t.Setenv("VOESX_API_KEY", "")
-	t.Setenv("VIDARA_KEY", "")
+	t.Setenv("DROPLOAD_KEY", "")
 	t.Setenv("STREAMTAPE_CREDS", "")
 
 	if h := NewVoeSXUploader("k").keys.host; h != "VoeSX" {
 		t.Errorf("VoeSX host = %q", h)
 	}
-	if h := NewVidaraUploader("k").keys.host; h != "Vidara" {
-		t.Errorf("Vidara host = %q", h)
+	if h := NewDroploadUploader("k").keys.host; h != "Dropload" {
+		t.Errorf("Dropload host = %q", h)
 	}
 	if h := NewStreamtapeUploader("l", "k").creds.host; h != "Streamtape" {
 		t.Errorf("Streamtape host = %q", h)

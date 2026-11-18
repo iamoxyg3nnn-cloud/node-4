@@ -64,12 +64,10 @@ type Set struct {
 	VoeSX      []Cred `json:"voesx,omitempty"`
 	Streamtape []Cred `json:"streamtape,omitempty"`
 	Mixdrop    []Cred `json:"mixdrop,omitempty"`
-	Vidara     []Cred `json:"vidara,omitempty"`
 	LuluStream []Cred `json:"lulustream,omitempty"`
 	DoodStream []Cred `json:"doodstream,omitempty"`
 	Upload18   []Cred `json:"upload18,omitempty"`
 	Dropload   []Cred `json:"dropload,omitempty"`
-	Videro     []Cred `json:"videro,omitempty"`
 	FileHost   []Cred `json:"filehost,omitempty"`
 	// Image / sprite / preview hosts
 	Catbox    []Cred `json:"catbox,omitempty"`
@@ -141,11 +139,6 @@ var hostSpecs = []hostSpec{
 		set: func(s *Set, v []Cred) { s.Mixdrop = v },
 	},
 	{
-		name: "Vidara", label: "Vidara", probeable: true, fields: []string{"key"},
-		get: func(s *Set) []Cred { return s.Vidara },
-		set: func(s *Set, v []Cred) { s.Vidara = v },
-	},
-	{
 		name: "LuluStream", label: "LuluStream", probeable: true, fields: []string{"key"},
 		get: func(s *Set) []Cred { return s.LuluStream },
 		set: func(s *Set, v []Cred) { s.LuluStream = v },
@@ -164,11 +157,6 @@ var hostSpecs = []hostSpec{
 		name: "Dropload", label: "Dropload", probeable: true, fields: []string{"key"},
 		get: func(s *Set) []Cred { return s.Dropload },
 		set: func(s *Set, v []Cred) { s.Dropload = v },
-	},
-	{
-		name: "Videro", label: "Videro", probeable: true, fields: []string{"key"},
-		get: func(s *Set) []Cred { return s.Videro },
-		set: func(s *Set, v []Cred) { s.Videro = v },
 	},
 	{
 		name: "FileHost", label: "FileHost", probeable: true, fields: []string{"key"},
@@ -306,12 +294,10 @@ func cloneSet(s *Set) *Set {
 	cp.VoeSX = append([]Cred(nil), s.VoeSX...)
 	cp.Streamtape = append([]Cred(nil), s.Streamtape...)
 	cp.Mixdrop = append([]Cred(nil), s.Mixdrop...)
-	cp.Vidara = append([]Cred(nil), s.Vidara...)
 	cp.LuluStream = append([]Cred(nil), s.LuluStream...)
 	cp.DoodStream = append([]Cred(nil), s.DoodStream...)
 	cp.Upload18 = append([]Cred(nil), s.Upload18...)
 	cp.Dropload = append([]Cred(nil), s.Dropload...)
-	cp.Videro = append([]Cred(nil), s.Videro...)
 	cp.FileHost = append([]Cred(nil), s.FileHost...)
 	return &cp
 }
@@ -352,12 +338,10 @@ func applyToConfig(s *Set) {
 		}
 	}
 	overlay(&server.Config.VoeSXAPIKey, "VOESX_API_KEY", joinKeys(s.VoeSX))
-	overlay(&server.Config.VidaraKey, "VIDARA_KEY", joinKeys(s.Vidara))
 	overlay(&server.Config.LuluStreamKey, "LULUSTREAM_KEY", joinKeys(s.LuluStream))
 	overlay(&server.Config.DoodStreamKey, "DOODSTREAM_API_KEY", joinKeys(s.DoodStream))
 	overlay(&server.Config.Upload18Key, "UPLOAD18_KEY", joinKeys(s.Upload18))
 	overlay(&server.Config.DroploadKey, "DROPLOAD_KEY", joinKeys(s.Dropload))
-	overlay(&server.Config.VideroKey, "VIDERO_KEY", joinKeys(s.Videro))
 	overlay(&server.Config.FileHostKey, "FILEHOST_KEY", joinKeys(s.FileHost))
 	// Image / sprite / preview hosts: keep env vars in sync so the uploaders
 	// (which read os.Getenv at construction time) pick up central edits.
@@ -866,8 +850,8 @@ func Remove(host, fingerprint string) error {
 // round-trip) and their verdicts returned for the save response; the status
 // rows of replaced credentials are dropped, so a rotation can never inherit
 // the previous key's verdict.
-func SyncLegacyForm(voeSXKey, stLogin, stKey, mdEmail, mdToken, vidaraKey, luluStreamKey, doodStreamKey, upload18Key, droploadKey, videroKey, fileHostKey string) []Verdict {
-	if strings.TrimSpace(voeSXKey+stLogin+stKey+mdEmail+mdToken+vidaraKey+luluStreamKey+doodStreamKey+upload18Key+droploadKey+videroKey+fileHostKey) == "" {
+func SyncLegacyForm(voeSXKey, stLogin, stKey, mdEmail, mdToken, luluStreamKey, doodStreamKey, upload18Key, droploadKey, fileHostKey string) []Verdict {
+	if strings.TrimSpace(voeSXKey+stLogin+stKey+mdEmail+mdToken+luluStreamKey+doodStreamKey+upload18Key+droploadKey+fileHostKey) == "" {
 		return nil
 	}
 	s, err := Load()
@@ -924,9 +908,6 @@ func SyncLegacyForm(voeSXKey, stLogin, stKey, mdEmail, mdToken, vidaraKey, luluS
 	if h, ok := specByName("VoeSX"); ok {
 		replace(h, credsFromCSV(voeSXKey))
 	}
-	if h, ok := specByName("Vidara"); ok {
-		replace(h, credsFromCSV(vidaraKey))
-	}
 	if h, ok := specByName("LuluStream"); ok {
 		replace(h, credsFromCSV(luluStreamKey))
 	}
@@ -938,9 +919,6 @@ func SyncLegacyForm(voeSXKey, stLogin, stKey, mdEmail, mdToken, vidaraKey, luluS
 	}
 	if h, ok := specByName("Dropload"); ok {
 		replace(h, credsFromCSV(droploadKey))
-	}
-	if h, ok := specByName("Videro"); ok {
-		replace(h, credsFromCSV(videroKey))
 	}
 	if h, ok := specByName("FileHost"); ok {
 		replace(h, credsFromCSV(fileHostKey))

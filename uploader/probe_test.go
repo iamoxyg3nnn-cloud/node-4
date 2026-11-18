@@ -119,48 +119,6 @@ func TestProbeVoeSXTransportErrorIsUndecided(t *testing.T) {
 	}
 }
 
-func TestProbeVidaraClassifiesResults(t *testing.T) {
-	cases := []struct {
-		name       string
-		handler    http.HandlerFunc
-		wantOK     bool
-		wantReject bool
-	}{
-		{
-			name: "healthy",
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprint(w, `{"status":200,"result":{"upload_server":"https://up.example"}}`)
-			},
-			wantOK: true,
-		},
-		{
-			name: "invalid key inside 200 body",
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprint(w, `{"status":403,"msg":"Invalid api key"}`)
-			},
-			wantReject: true,
-		},
-		{
-			name: "site error undecided",
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprint(w, `{"status":500,"msg":"internal error"}`)
-			},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(tc.handler)
-			defer srv.Close()
-			swapBase(t, &vidaraAPIBase, srv.URL)
-
-			got := ProbeVidara("test-key")
-			if got.OK != tc.wantOK || got.Rejected != tc.wantReject {
-				t.Errorf("got %+v, want OK=%v Rejected=%v", got, tc.wantOK, tc.wantReject)
-			}
-		})
-	}
-}
-
 func TestProbeStreamtapeClassifiesResults(t *testing.T) {
 	cases := []struct {
 		name       string

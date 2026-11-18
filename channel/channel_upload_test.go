@@ -12,7 +12,7 @@ func TestEmbedURLFromLink(t *testing.T) {
 		{"LuluStream", "https://luluvdo.com/AbC123xY.html", "https://lulustream.com/embed/AbC123xY"},
 		{"DoodStream", "https://dood.to/e/xyz789", "https://dood.to/e/xyz789"},
 		{"VOE.sx", "https://voe.sx/abc123", "https://voe.sx/e/abc123"},
-		{"Upload18", "https://upload18.org/play/index/cd90ffd5ba95", "https://upload18.org/play/index/cd90ffd5ba95"},
+		{"Upload18", "https://upload18.to/play/index/cd90ffd5ba95", "https://upload18.to/play/index/cd90ffd5ba95"},
 		{"LuluStream", "", ""},
 	}
 	for _, cse := range cases {

@@ -158,69 +158,6 @@ func TestVerifyVoeSXStorageFullDoesNotUpload(t *testing.T) {
 	}
 }
 
-func TestVerifyVidaraUploadRoundTripAndQuota(t *testing.T) {
-	t.Run("round trip", func(t *testing.T) {
-		var uploads, deletes atomic.Int32
-		var srv *httptest.Server
-		srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch r.URL.Path {
-			case "/upload/server":
-				fmt.Fprintf(w, `{"msg":"OK","status":200,"result":{"upload_server":"%s/up"}}`, srv.URL)
-			case "/up":
-				data := readProbeUpload(t, r, "file")
-				uploads.Add(1)
-				if r.FormValue("api_key") != "probe-key" {
-					t.Errorf("api_key field = %q, want probe-key", r.FormValue("api_key"))
-				}
-				if len(data) < 1000 {
-					t.Errorf("uploaded probe is %d bytes", len(data))
-				}
-				fmt.Fprint(w, `{"filecode":"https://vidara.to/e/CODE123","video_id":1,"title":"probe"}`)
-			case "/video/delete":
-				deletes.Add(1)
-				if r.URL.Query().Get("filecode") != "CODE123" {
-					t.Errorf("filecode = %q, want CODE123", r.URL.Query().Get("filecode"))
-				}
-				fmt.Fprint(w, `{"msg":"OK","status":200,"result":{"filecode":"CODE123","deleted":true}}`)
-			default:
-				t.Errorf("unexpected probe path %s", r.URL.Path)
-			}
-		}))
-		defer srv.Close()
-		swapBase(t, &vidaraAPIBase, srv.URL)
-
-		res := VerifyVidara("probe-key")
-		if !res.OK || res.Rejected || res.Quota {
-			t.Fatalf("res = %+v, want healthy", res)
-		}
-		if uploads.Load() != 1 || deletes.Load() != 1 {
-			t.Errorf("uploads=%d deletes=%d, want 1/1", uploads.Load(), deletes.Load())
-		}
-	})
-
-	t.Run("daily limit is quota", func(t *testing.T) {
-		var srv *httptest.Server
-		srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch r.URL.Path {
-			case "/upload/server":
-				fmt.Fprintf(w, `{"msg":"OK","status":200,"result":{"upload_server":"%s/up"}}`, srv.URL)
-			case "/up":
-				w.WriteHeader(http.StatusTooManyRequests)
-				fmt.Fprint(w, `{"status":429,"msg":"Daily upload limit reached"}`)
-			default:
-				http.NotFound(w, r)
-			}
-		}))
-		defer srv.Close()
-		swapBase(t, &vidaraAPIBase, srv.URL)
-
-		res := VerifyVidara("capped-key")
-		if res.OK || res.Rejected || !res.Quota {
-			t.Fatalf("res = %+v, want quota", res)
-		}
-	})
-}
-
 func TestVerifyStreamtapeUploadRoundTrip(t *testing.T) {
 	var uploads, deletes atomic.Int32
 	var srv *httptest.Server

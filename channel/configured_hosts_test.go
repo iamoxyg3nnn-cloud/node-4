@@ -25,10 +25,8 @@ func TestConfiguredUploadHostsIsDelegated(t *testing.T) {
 		StreamtapeKey:   "pass",
 		MixdropEmail:    "a@b.c",
 		MixdropToken:    "tok",
-		VidaraKey:       "vid-key",
 		Upload18Key:     "up18-key",
 		DroploadKey:     "drop-key",
-		VideroKey:       "vid-key-2",
 		FileHostKey:     "fh-key",
 	}
 
@@ -41,7 +39,7 @@ func TestConfiguredUploadHostsIsDelegated(t *testing.T) {
 		}
 		return false
 	}
-	for _, want := range []string{"GoFile", "VOE.sx", "Streamtape", "Mixdrop", "Vidara", "Upload18", "Dropload", "Videro", "FileHost"} {
+	for _, want := range []string{"GoFile", "VOE.sx", "Streamtape", "Mixdrop", "Upload18", "Dropload", "FileHost"} {
 		if !has(want) {
 			t.Errorf("configuredUploadHosts() missing %q; got %v", want, hosts)
 		}
@@ -90,10 +88,10 @@ func TestConfiguredUploadHostsHonorsDisabledList(t *testing.T) {
 		StreamtapeKey:   "pass",
 		MixdropEmail:    "a@b.c",
 		MixdropToken:    "tok",
-		VidaraKey:       "vid-key",
+		DroploadKey:     "drop-key",
 	}
 
-	uploader.SetDisabledHosts([]string{"AnonMP4", "Vidara"})
+	uploader.SetDisabledHosts([]string{"AnonMP4", "Dropload"})
 	defer uploader.SetDisabledHosts(nil)
 
 	hosts := configuredUploadHosts()
@@ -105,7 +103,7 @@ func TestConfiguredUploadHostsHonorsDisabledList(t *testing.T) {
 		}
 		return false
 	}
-	for _, disabled := range []string{"AnonMP4", "Vidara"} {
+	for _, disabled := range []string{"AnonMP4", "Dropload"} {
 		if has(disabled) {
 			t.Errorf("disabled host %q still in configuredUploadHosts(); got %v", disabled, hosts)
 		}

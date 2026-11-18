@@ -90,18 +90,3 @@ func TestVoeSXUploaderRotatesOnAuthError(t *testing.T) {
 		t.Fatalf("after rotate current = %q, want good-key", u.keys.current())
 	}
 }
-
-func TestVidaraUploaderRotatesOnAuthError(t *testing.T) {
-	t.Setenv("VIDARA_KEY", "bad-key,good-key")
-	u := NewVidaraUploader("bad-key,good-key")
-	if u.keys.count() != 2 {
-		t.Fatalf("key count = %d, want 2", u.keys.count())
-	}
-	if u.keys.current() != "bad-key" {
-		t.Fatalf("current = %q, want bad-key", u.keys.current())
-	}
-	u.keys.rotate()
-	if u.keys.current() != "good-key" {
-		t.Fatalf("after rotate current = %q, want good-key", u.keys.current())
-	}
-}

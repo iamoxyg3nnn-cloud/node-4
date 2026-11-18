@@ -2,12 +2,6 @@ package uploader
 
 import (
 	"errors"
-	"fmt"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -124,82 +118,5 @@ func TestFullSendMarkerIsScopedToItsFile(t *testing.T) {
 	}
 	if strings.Contains(got[0].Error.Error(), "already fully transmitted") {
 		t.Errorf("b.mp4 was skipped as already-transmitted; the full-send marker leaked from a.mp4: %v", got[0].Error)
-	}
-}
-
-// TestVidaraStopsRetryingAfterFullBodySent: within a single
-// UploadWithProgress call, when the entire body has been transmitted and the
-// host then returns a 5xx, the file must NOT be re-streamed for the remaining
-// in-call retry attempts.
-func TestVidaraStopsRetryingAfterFullBodySent(t *testing.T) {
-	var uploads int
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/upload/server") {
-			fmt.Fprintf(w, `{"msg":"OK","status":200,"result":{"upload_server":%q}}`, srv.URL)
-			return
-		}
-		uploads++
-		// Consume the ENTIRE multipart body (this is what makes the client's
-		// progress reach 100%), then reject the upload with a 500.
-		if _, err := io.ReadAll(r.Body); err != nil {
-			http.Error(w, "read err", http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, `{"status":500,"msg":"boom"}`)
-	}))
-	defer srv.Close()
-
-	oldBase := vidaraAPIBase
-	vidaraAPIBase = srv.URL
-	defer func() { vidaraAPIBase = oldBase }()
-
-	dir := t.TempDir()
-	filePath := filepath.Join(dir, "test.mp4")
-	if err := os.WriteFile(filePath, []byte("fake video bytes"), 0o644); err != nil {
-		t.Fatalf("write temp file: %v", err)
-	}
-
-	u := NewVidaraUploader("test-key")
-	if _, err := u.Upload(filePath); err == nil {
-		t.Fatal("expected an error from a 500 response")
-	}
-	if uploads != 1 {
-		t.Fatalf("file re-streamed %d times after a fully-sent body, want 1", uploads)
-	}
-}
-
-// TestVidaraAuthErrorNarrowing pins isVidaraAuthError to explicit
-// credential-rejection wording.  Broad matchers ("403", "forbidden", bare
-// "api key") previously mislabeled nginx/Cloudflare block pages as dead keys,
-// producing "all keys exhausted" for every file while the key was valid.
-func TestVidaraAuthErrorNarrowing(t *testing.T) {
-	rejections := []string{
-		`get upload server failed with status 401: {"msg":"invalid api_key","status":401,"result":null}`,
-		"get upload server failed with status 403: invalid api key",
-		"auth failed: invalid_api_key",
-		"upload failed: unauthorized",
-		"could not authenticate user: authentication failed",
-		"api key is invalid",
-	}
-	for _, m := range rejections {
-		if !isVidaraAuthError(errors.New(m)) {
-			t.Errorf("isVidaraAuthError(%q) = false, want true", m)
-		}
-	}
-
-	notAuth := []string{
-		"get upload server failed with status 403: 403 Forbidden", // nginx/Cloudflare block page
-		"upload failed with status 403: <html>Forbidden</html>",
-		"get upload server failed with status 403",
-		"upload failed with status 500: internal server error",
-		"dial tcp 1.2.3.4:443: connectex: connection refused",
-		"Vidara API key not configured",
-	}
-	for _, m := range notAuth {
-		if isVidaraAuthError(errors.New(m)) {
-			t.Errorf("isVidaraAuthError(%q) = true, want false", m)
-		}
 	}
 }

@@ -12,7 +12,7 @@ import (
 func TestIsKeysExhausted(t *testing.T) {
 	yes := []string{
 		"VOE.sx upload failed: all keys exhausted",
-		"Vidara upload failed: all keys exhausted",
+		"Dropload upload failed: all keys exhausted",
 	}
 	for _, m := range yes {
 		if !isKeysExhausted(errors.New(m)) {
@@ -46,23 +46,23 @@ func TestKeysExhaustedDisablesHost(t *testing.T) {
 	u := &MultiHostUploader{
 		log: &nilLogger{},
 		hosts: map[string]uploaderFunc{
-			"Vidara": func(_ string, _ ProgressFunc) (string, error) {
-				return "", errors.New("Vidara upload failed: all keys exhausted")
+			"Dropload": func(_ string, _ ProgressFunc) (string, error) {
+				return "", errors.New("Dropload upload failed: all keys exhausted")
 			},
 		},
 	}
 
-	results := u.UploadSelected("f.mp4", []string{"Vidara"})
+	results := u.UploadSelected("f.mp4", []string{"Dropload"})
 	if len(results) != 1 || results[0].Error == nil {
 		t.Fatalf("expected a failure result, got %#v", results)
 	}
-	if !u.isHostDisabled("Vidara") {
+	if !u.isHostDisabled("Dropload") {
 		t.Error("host not disabled after all keys were exhausted")
 	}
-	if !isHostTimedOut("Vidara") {
+	if !isHostTimedOut("Dropload") {
 		t.Error("host not on a timed cooldown after all keys were exhausted")
 	}
-	if remaining := time.Until(hostTimedOutUntil("Vidara")); remaining > keysExhaustedCooldown {
+	if remaining := time.Until(hostTimedOutUntil("Dropload")); remaining > keysExhaustedCooldown {
 		t.Errorf("timed cooldown %s exceeds keysExhaustedCooldown %s", remaining, keysExhaustedCooldown)
 	}
 }
@@ -78,15 +78,15 @@ func TestKeysExhaustedSkipsNextFile(t *testing.T) {
 	u := &MultiHostUploader{
 		log: &nilLogger{},
 		hosts: map[string]uploaderFunc{
-			"Vidara": func(_ string, _ ProgressFunc) (string, error) {
+			"Dropload": func(_ string, _ ProgressFunc) (string, error) {
 				calls++
-				return "", errors.New("Vidara upload failed: all keys exhausted")
+				return "", errors.New("Dropload upload failed: all keys exhausted")
 			},
 		},
 	}
 
-	u.UploadSelected("f1.mp4", []string{"Vidara"})
-	u.UploadSelected("f2.mp4", []string{"Vidara"})
+	u.UploadSelected("f1.mp4", []string{"Dropload"})
+	u.UploadSelected("f2.mp4", []string{"Dropload"})
 
 	if calls != 1 {
 		t.Errorf("host invoked %d times, want 1 (the second file must be skipped inside the cooldown)", calls)

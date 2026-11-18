@@ -67,7 +67,7 @@ func stubConfig(t *testing.T) *entity.Config {
 	old := server.Config
 	server.Config = &entity.Config{}
 	t.Cleanup(func() { server.Config = old })
-	for _, v := range []string{"VOESX_API_KEY", "VIDARA_KEY", "STREAMTAPE_CREDS"} {
+	for _, v := range []string{"VOESX_API_KEY", "DROPLOAD_KEY", "STREAMTAPE_CREDS"} {
 		t.Setenv(v, "")
 	}
 	return server.Config
@@ -152,10 +152,10 @@ func TestAddValidatesAndDedupes(t *testing.T) {
 	if _, err := Add("Streamtape", Cred{Key: "k"}); err == nil {
 		t.Fatal("streamtape without login must be rejected")
 	}
-	if _, err := Add("Vidara", Cred{Key: "dup-key"}); err != nil {
+	if _, err := Add("Upload18", Cred{Key: "dup-key"}); err != nil {
 		t.Fatalf("first add: %v", err)
 	}
-	if _, err := Add("Vidara", Cred{Key: "dup-key"}); err == nil {
+	if _, err := Add("Upload18", Cred{Key: "dup-key"}); err == nil {
 		t.Fatal("duplicate credential must be rejected")
 	}
 }
@@ -171,7 +171,7 @@ func TestApplyToConfigOverlaysAllHosts(t *testing.T) {
 		VoeSX:      []Cred{{Key: "v1"}, {Key: "v2"}},
 		Streamtape: []Cred{{Login: "l1", Key: "k1"}, {Login: "l2", Key: "k2"}},
 		Mixdrop:    []Cred{{Email: "mix@a.c", Token: "mix-tok"}},
-		Vidara:     []Cred{{Key: "vid"}},
+		Upload18:   []Cred{{Key: "vid"}},
 	})
 
 	if cfg.VoeSXAPIKey != "v1,v2" {
@@ -189,12 +189,12 @@ func TestApplyToConfigOverlaysAllHosts(t *testing.T) {
 	if cfg.MixdropEmail != "mix@a.c" || cfg.MixdropToken != "mix-tok" {
 		t.Errorf("mixdrop = %q / %q", cfg.MixdropEmail, cfg.MixdropToken)
 	}
-	if cfg.VidaraKey != "vid" {
-		t.Errorf("vidara = %q", cfg.VidaraKey)
+	if cfg.Upload18Key != "vid" {
+		t.Errorf("upload18 = %q", cfg.Upload18Key)
 	}
 
 	// A partial set must not clear hosts it says nothing about.
-	applyToConfig(&Set{Vidara: []Cred{{Key: "vid-only"}}})
+	applyToConfig(&Set{Upload18: []Cred{{Key: "vid-only"}}})
 	if cfg.VoeSXAPIKey != "v1,v2" || cfg.StreamtapeLogin != "l1,l2" {
 		t.Errorf("partial apply cleared other hosts: voe=%q st=%q", cfg.VoeSXAPIKey, cfg.StreamtapeLogin)
 	}
@@ -256,9 +256,9 @@ func TestSnapshotMergesStatuses(t *testing.T) {
 func TestOnKeyDeathClassifies(t *testing.T) {
 	stubStore(t)
 
-	onKeyDeath("Vidara", "auth-secret", "authentication rejected")
-	if s := statuses[statusKeyOf("Vidara", Fingerprint("auth-secret"))]; s.Status != StatusDead || s.Host != "Vidara" {
-		t.Fatalf("auth death = %+v, want dead/Vidara", s)
+	onKeyDeath("Upload18", "auth-secret", "authentication rejected")
+	if s := statuses[statusKeyOf("Upload18", Fingerprint("auth-secret"))]; s.Status != StatusDead || s.Host != "Upload18" {
+		t.Fatalf("auth death = %+v, want dead/Upload18", s)
 	}
 
 	onKeyDeath("VoeSX", "quota-secret", "storage quota full")
@@ -266,8 +266,8 @@ func TestOnKeyDeathClassifies(t *testing.T) {
 		t.Fatalf("quota death = %+v, want quota", s)
 	}
 
-	onKeyDeath("Vidara", "limit-secret", "daily api limit")
-	if s := statuses[statusKeyOf("Vidara", Fingerprint("limit-secret"))]; s.Status != StatusQuota {
+	onKeyDeath("Upload18", "limit-secret", "daily api limit")
+	if s := statuses[statusKeyOf("Upload18", Fingerprint("limit-secret"))]; s.Status != StatusQuota {
 		t.Fatalf("daily-limit = %+v, want quota", s)
 	}
 }
@@ -277,13 +277,13 @@ func TestOnKeyDeathClassifies(t *testing.T) {
 func TestSameKeyDifferentHostsKeptSeparate(t *testing.T) {
 	stubStore(t)
 
-	recordStatus("Vidara", Fingerprint("shared-secret"), StatusDead, "rejected")
+	recordStatus("Dropload", Fingerprint("shared-secret"), StatusDead, "rejected")
 	recordStatus("VoeSX", Fingerprint("shared-secret"), StatusHealthy, "")
-	if s := statuses[statusKeyOf("Vidara", Fingerprint("shared-secret"))]; s.Status != StatusDead {
-		t.Fatalf("vidara verdict clobbered by voesx: %+v", s)
+	if s := statuses[statusKeyOf("Dropload", Fingerprint("shared-secret"))]; s.Status != StatusDead {
+		t.Fatalf("dropload verdict clobbered by voesx: %+v", s)
 	}
 	if s := statuses[statusKeyOf("VoeSX", Fingerprint("shared-secret"))]; s.Status != StatusHealthy {
-		t.Fatalf("voesx verdict clobbered by vidara: %+v", s)
+		t.Fatalf("voesx verdict clobbered by dropload: %+v", s)
 	}
 }
 
@@ -291,11 +291,11 @@ func TestSyncLegacyFormReplacesOnlyGivenHosts(t *testing.T) {
 	blobs := stubStore(t)
 	cfg := stubConfig(t)
 
-	pre := &Set{Vidara: []Cred{{Key: "pre-existing-vidara"}}}
+	pre := &Set{Dropload: []Cred{{Key: "pre-existing-dropload"}}}
 	preData, _ := json.Marshal(pre)
 	blobs[keysKey] = &preData
 
-	SyncLegacyForm("n1,n2", "l1,l2", "k1,k2", "mix@a.c", "mix-tok", "vid1", "", "", "", "", "", "")
+	SyncLegacyForm("n1,n2", "l1,l2", "k1,k2", "mix@a.c", "mix-tok", "", "", "", "drop1", "")
 
 	s := storedSet(t, blobs)
 	if len(s.VoeSX) != 2 || s.VoeSX[0].Key != "n1" || s.VoeSX[1].Key != "n2" {
@@ -307,8 +307,8 @@ func TestSyncLegacyFormReplacesOnlyGivenHosts(t *testing.T) {
 	if len(s.Mixdrop) != 1 || s.Mixdrop[0].Email != "mix@a.c" {
 		t.Errorf("mixdrop = %+v", s.Mixdrop)
 	}
-	if len(s.Vidara) != 1 || s.Vidara[0].Key != "vid1" {
-		t.Errorf("vidara = %+v (legacy replace)", s.Vidara)
+	if len(s.Dropload) != 1 || s.Dropload[0].Key != "drop1" {
+		t.Errorf("dropload = %+v (legacy replace)", s.Dropload)
 	}
 	if cfg.VoeSXAPIKey != "n1,n2" {
 		t.Errorf("config not applied: %q", cfg.VoeSXAPIKey)
@@ -316,7 +316,7 @@ func TestSyncLegacyFormReplacesOnlyGivenHosts(t *testing.T) {
 
 	// All-empty submission is a no-op (the legacy form always posts every field).
 	before, _ := json.Marshal(storedSet(t, blobs))
-	SyncLegacyForm("", "", "", "", "", "", "", "", "", "", "", "")
+	SyncLegacyForm("", "", "", "", "", "", "", "", "", "")
 	after, _ := json.Marshal(storedSet(t, blobs))
 	if string(before) != string(after) {
 		t.Fatal("all-empty sync must not touch the store")
@@ -332,7 +332,7 @@ func TestSeedFromConfigOnlyWhenEmpty(t *testing.T) {
 	cfg.StreamtapeKey = "sk1,sk2"
 	cfg.MixdropEmail = "mix@a.c"
 	cfg.MixdropToken = "mix-tok"
-	cfg.VidaraKey = "vid-env"
+	cfg.DroploadKey = "drop-env"
 
 	seedFromConfig()
 	s := storedSet(t, blobs)
@@ -345,8 +345,8 @@ func TestSeedFromConfigOnlyWhenEmpty(t *testing.T) {
 	if len(s.Mixdrop) != 1 || s.Mixdrop[0].Token != "mix-tok" {
 		t.Errorf("seeded mixdrop = %+v", s.Mixdrop)
 	}
-	if len(s.Vidara) != 1 || s.Vidara[0].Key != "vid-env" {
-		t.Errorf("seeded vidara = %+v", s.Vidara)
+	if len(s.Dropload) != 1 || s.Dropload[0].Key != "drop-env" {
+		t.Errorf("seeded dropload = %+v", s.Dropload)
 	}
 
 	// A non-empty central store must never be re-seeded from env.
@@ -410,15 +410,15 @@ func TestMergeStatusesNewerWins(t *testing.T) {
 	stubStore(t)
 
 	fp := Fingerprint("shared-key")
-	k := statusKeyOf("Vidara", fp)
+	k := statusKeyOf("Dropload", fp)
 	fresh := time.Now()
-	mergeStatuses([]KeyStatus{{Host: "Vidara", Fingerprint: fp, Status: StatusHealthy, LastChecked: fresh}})
-	mergeStatuses([]KeyStatus{{Host: "Vidara", Fingerprint: fp, Status: StatusDead, LastChecked: fresh.Add(-time.Hour)}})
+	mergeStatuses([]KeyStatus{{Host: "Dropload", Fingerprint: fp, Status: StatusHealthy, LastChecked: fresh}})
+	mergeStatuses([]KeyStatus{{Host: "Dropload", Fingerprint: fp, Status: StatusDead, LastChecked: fresh.Add(-time.Hour)}})
 	if s := statuses[k]; s.Status != StatusHealthy {
 		t.Fatalf("older row clobbered fresh status: %+v", s)
 	}
 
-	mergeStatuses([]KeyStatus{{Host: "Vidara", Fingerprint: fp, Status: StatusDead, LastChecked: fresh.Add(time.Hour)}})
+	mergeStatuses([]KeyStatus{{Host: "Dropload", Fingerprint: fp, Status: StatusDead, LastChecked: fresh.Add(time.Hour)}})
 	if s := statuses[k]; s.Status != StatusDead {
 		t.Fatalf("newer row not applied: %+v", s)
 	}
@@ -439,13 +439,13 @@ func TestManagedClearsRemovedHosts(t *testing.T) {
 	cfg.MixdropToken = "m-tok"
 
 	// Unmanaged: empty voesx list must NOT clear the env-derived key.
-	applyToConfig(&Set{Vidara: []Cred{{Key: "vid"}}})
+	applyToConfig(&Set{Dropload: []Cred{{Key: "drop"}}})
 	if cfg.VoeSXAPIKey != "env-still-there" {
 		t.Fatalf("unmanaged set cleared voesx: %q", cfg.VoeSXAPIKey)
 	}
 
 	// Managed: empty lists mean deleted on purpose.
-	applyToConfig(&Set{Managed: true, Vidara: []Cred{{Key: "vid"}}})
+	applyToConfig(&Set{Managed: true, Dropload: []Cred{{Key: "drop"}}})
 	if cfg.VoeSXAPIKey != "" || os.Getenv("VOESX_API_KEY") != "" {
 		t.Errorf("managed empty voesx not cleared: cfg=%q env=%q", cfg.VoeSXAPIKey, os.Getenv("VOESX_API_KEY"))
 	}
@@ -455,8 +455,8 @@ func TestManagedClearsRemovedHosts(t *testing.T) {
 	if cfg.MixdropEmail != "" || cfg.MixdropToken != "" {
 		t.Errorf("managed empty mixdrop not cleared: %q / %q", cfg.MixdropEmail, cfg.MixdropToken)
 	}
-	if cfg.VidaraKey != "vid" {
-		t.Errorf("managed non-empty vidara must still overlay: %q", cfg.VidaraKey)
+	if cfg.DroploadKey != "drop" {
+		t.Errorf("managed non-empty dropload must still overlay: %q", cfg.DroploadKey)
 	}
 
 	// Save stamps Managed so every persisted set is authoritative.
@@ -471,22 +471,22 @@ func TestManagedClearsRemovedHosts(t *testing.T) {
 func TestProbeUnknownPreservesVerdict(t *testing.T) {
 	stubStore(t)
 
-	old := probeFuncs["Vidara"]
-	t.Cleanup(func() { probeFuncs["Vidara"] = old })
-	probeFuncs["Vidara"] = func(Cred) uploader.ProbeResult { return uploader.ProbeResult{Message: "host down"} }
+	old := probeFuncs["Dropload"]
+	t.Cleanup(func() { probeFuncs["Dropload"] = old })
+	probeFuncs["Dropload"] = func(Cred) uploader.ProbeResult { return uploader.ProbeResult{Message: "host down"} }
 
-	voe, _ := specByName("Vidara")
-	cred := Cred{Key: "vk-1"}
+	drop, _ := specByName("Dropload")
+	cred := Cred{Key: "dk-1"}
 
 	// First probe with no verdict → unknown.
-	ks := probeOne(voe, cred)
+	ks := probeOne(drop, cred)
 	if ks.Status != StatusUnknown {
 		t.Fatalf("first probe = %q, want unknown", ks.Status)
 	}
 
 	// A passive dead verdict must survive a later network-glitch probe.
-	recordStatus("Vidara", Fingerprint("vk-1"), StatusDead, "rejected by api")
-	ks2 := probeOne(voe, cred)
+	recordStatus("Dropload", Fingerprint("dk-1"), StatusDead, "rejected by api")
+	ks2 := probeOne(drop, cred)
 	if ks2.Status != StatusDead || !strings.Contains(ks2.Message, "rejected") {
 		t.Fatalf("unknown probe erased dead verdict: %+v", ks2)
 	}
@@ -495,8 +495,8 @@ func TestProbeUnknownPreservesVerdict(t *testing.T) {
 	}
 
 	// A decisive probe always overwrites.
-	probeFuncs["Vidara"] = func(Cred) uploader.ProbeResult { return uploader.ProbeResult{OK: true} }
-	if ks3 := probeOne(voe, cred); ks3.Status != StatusHealthy {
+	probeFuncs["Dropload"] = func(Cred) uploader.ProbeResult { return uploader.ProbeResult{OK: true} }
+	if ks3 := probeOne(drop, cred); ks3.Status != StatusHealthy {
 		t.Fatalf("decisive healthy probe must overwrite dead: %+v", ks3)
 	}
 }
@@ -512,13 +512,13 @@ func TestSyncLegacyFormMixdropPoolPreserved(t *testing.T) {
 	blobs[keysKey] = &preData
 
 	// Unchanged resubmission of the first account → pool preserved.
-	SyncLegacyForm("", "", "", "first@a.c", "tok-1", "", "", "", "", "", "", "")
+	SyncLegacyForm("", "", "", "first@a.c", "tok-1", "", "", "", "", "")
 	if got := storedSet(t, blobs); len(got.Mixdrop) != 2 {
 		t.Fatalf("unchanged sync truncated mixdrop pool: %+v", got.Mixdrop)
 	}
 
 	// Changed token (intentional rotation) → replaced with the single pair.
-	SyncLegacyForm("", "", "", "first@a.c", "tok-rotated", "", "", "", "", "", "", "")
+	SyncLegacyForm("", "", "", "first@a.c", "tok-rotated", "", "", "", "", "")
 	if got := storedSet(t, blobs); len(got.Mixdrop) != 1 || got.Mixdrop[0].Token != "tok-rotated" {
 		t.Fatalf("rotation not applied: %+v", got.Mixdrop)
 	}
@@ -547,13 +547,13 @@ func TestManagedEmptyStoreNotReseeded(t *testing.T) {
 func TestProbeOneRecordsQuotaNotHealthy(t *testing.T) {
 	stubStore(t)
 
-	old := probeFuncs["Vidara"]
-	t.Cleanup(func() { probeFuncs["Vidara"] = old })
-	probeFuncs["Vidara"] = func(Cred) uploader.ProbeResult {
+	old := probeFuncs["Dropload"]
+	t.Cleanup(func() { probeFuncs["Dropload"] = old })
+	probeFuncs["Dropload"] = func(Cred) uploader.ProbeResult {
 		return uploader.ProbeResult{Quota: true, Message: "daily upload limit"}
 	}
 
-	h, _ := specByName("Vidara")
+	h, _ := specByName("Dropload")
 	ks := probeOne(h, Cred{Key: "capped-key"})
 	if ks.Status != StatusQuota {
 		t.Fatalf("probe status = %q, want quota", ks.Status)
@@ -570,40 +570,40 @@ func TestSyncLegacyFormDropsStaleStatusAndVerifiesNewKey(t *testing.T) {
 	blobs := stubStore(t)
 	stubConfig(t)
 
-	pre := &Set{Vidara: []Cred{{Key: "old-vidara-key"}}}
+	pre := &Set{Dropload: []Cred{{Key: "old-dropload-key"}}}
 	preData, _ := json.Marshal(pre)
 	blobs[keysKey] = &preData
 
-	oldFP := Fingerprint("old-vidara-key")
-	recordStatus("Vidara", oldFP, StatusHealthy, "")
-	if statuses[statusKeyOf("Vidara", oldFP)].Status != StatusHealthy {
+	oldFP := Fingerprint("old-dropload-key")
+	recordStatus("Dropload", oldFP, StatusHealthy, "")
+	if statuses[statusKeyOf("Dropload", oldFP)].Status != StatusHealthy {
 		t.Fatal("precondition: old key not healthy")
 	}
 
 	var probed []string
-	probeFuncs["Vidara"] = func(c Cred) uploader.ProbeResult {
+	probeFuncs["Dropload"] = func(c Cred) uploader.ProbeResult {
 		probed = append(probed, c.Key)
 		return uploader.ProbeResult{OK: true}
 	}
 
-	verdicts := SyncLegacyForm("", "", "", "", "", "new-vidara-key", "", "", "", "", "", "")
+	verdicts := SyncLegacyForm("", "", "", "", "", "", "", "", "new-dropload-key", "")
 
-	if _, ok := statuses[statusKeyOf("Vidara", oldFP)]; ok {
+	if _, ok := statuses[statusKeyOf("Dropload", oldFP)]; ok {
 		t.Error("replaced key's status row survived the edit")
 	}
-	if len(probed) != 1 || probed[0] != "new-vidara-key" {
-		t.Fatalf("probed = %+v, want the new Vidara key", probed)
+	if len(probed) != 1 || probed[0] != "new-dropload-key" {
+		t.Fatalf("probed = %+v, want the new Dropload key", probed)
 	}
-	if len(verdicts) != 1 || verdicts[0].Status != StatusHealthy || verdicts[0].Label != "Vidara" {
-		t.Fatalf("verdicts = %+v, want one healthy Vidara verdict", verdicts)
+	if len(verdicts) != 1 || verdicts[0].Status != StatusHealthy || verdicts[0].Label != "Dropload" {
+		t.Fatalf("verdicts = %+v, want one healthy Dropload verdict", verdicts)
 	}
-	if got := storedSet(t, blobs); len(got.Vidara) != 1 || got.Vidara[0].Key != "new-vidara-key" {
-		t.Fatalf("stored vidara = %+v", got.Vidara)
+	if got := storedSet(t, blobs); len(got.Dropload) != 1 || got.Dropload[0].Key != "new-dropload-key" {
+		t.Fatalf("stored dropload = %+v", got.Dropload)
 	}
 
 	// An unchanged resubmission must not re-verify or drop the (now) current key.
 	probed = nil
-	if verdicts := SyncLegacyForm("", "", "", "", "", "new-vidara-key", "", "", "", "", "", ""); len(verdicts) != 0 {
+	if verdicts := SyncLegacyForm("", "", "", "", "", "", "", "", "new-dropload-key", ""); len(verdicts) != 0 {
 		t.Errorf("unchanged key returned verdicts: %+v", verdicts)
 	}
 	if len(probed) != 0 {
@@ -617,15 +617,15 @@ func TestSyncLegacyFormReportsFailingKeyInSaveResponse(t *testing.T) {
 	blobs := stubStore(t)
 	stubConfig(t)
 
-	pre := &Set{Vidara: []Cred{{Key: "old-vidara-key"}}}
+	pre := &Set{Dropload: []Cred{{Key: "old-dropload-key"}}}
 	preData, _ := json.Marshal(pre)
 	blobs[keysKey] = &preData
 
-	probeFuncs["Vidara"] = func(Cred) uploader.ProbeResult {
+	probeFuncs["Dropload"] = func(Cred) uploader.ProbeResult {
 		return uploader.ProbeResult{Rejected: true, Message: "upload rejected: HTTP 401"}
 	}
 
-	verdicts := SyncLegacyForm("", "", "", "", "", "rotated-bad-key", "", "", "", "", "", "")
+	verdicts := SyncLegacyForm("", "", "", "", "", "", "", "", "rotated-bad-key", "")
 	if len(verdicts) != 1 {
 		t.Fatalf("verdicts = %+v, want exactly the rotated key", verdicts)
 	}
@@ -633,11 +633,11 @@ func TestSyncLegacyFormReportsFailingKeyInSaveResponse(t *testing.T) {
 	if v.Status != StatusDead || !strings.Contains(v.Message, "401") {
 		t.Fatalf("verdict = %+v, want dead with the host's 401 message", v)
 	}
-	if v.Label != "Vidara" || v.Display != "••••-key" {
+	if v.Label != "Dropload" || v.Display != "••••-key" {
 		t.Errorf("verdict identity = %q / %q", v.Label, v.Display)
 	}
-	if got := storedSet(t, blobs); len(got.Vidara) != 1 || got.Vidara[0].Key != "rotated-bad-key" {
-		t.Fatalf("failing key was not saved: %+v", got.Vidara)
+	if got := storedSet(t, blobs); len(got.Dropload) != 1 || got.Dropload[0].Key != "rotated-bad-key" {
+		t.Fatalf("failing key was not saved: %+v", got.Dropload)
 	}
 }
 
@@ -647,21 +647,21 @@ func TestAddReturnsProbeVerdict(t *testing.T) {
 	stubStore(t)
 	stubConfig(t)
 
-	probeFuncs["Vidara"] = func(c Cred) uploader.ProbeResult {
-		if c.Key != "vid-new" {
+	probeFuncs["Dropload"] = func(c Cred) uploader.ProbeResult {
+		if c.Key != "drop-new" {
 			t.Fatalf("probed key = %q", c.Key)
 		}
 		return uploader.ProbeResult{Quota: true, Message: "daily upload limit"}
 	}
 
-	v, err := Add("Vidara", Cred{Key: "vid-new"})
+	v, err := Add("Upload18", Cred{Key: "drop-new"})
 	if err != nil {
 		t.Fatalf("Add: %v", err)
 	}
-	if v.Host != "Vidara" || v.Label != "Vidara" || v.Status != StatusQuota || !strings.Contains(v.Message, "daily") {
+	if v.Host != "Dropload" || v.Label != "Dropload" || v.Status != StatusQuota || !strings.Contains(v.Message, "daily") {
 		t.Fatalf("verdict = %+v", v)
 	}
-	if s := statuses[statusKeyOf("Vidara", Fingerprint("vid-new"))]; s.Status != StatusQuota {
+	if s := statuses[statusKeyOf("Dropload", Fingerprint("drop-new"))]; s.Status != StatusQuota {
 		t.Fatalf("status row = %+v, want quota", s)
 	}
 }
@@ -804,11 +804,11 @@ func TestReapDeadRemovesOnlyDeadKeys(t *testing.T) {
 	blobs := stubStore(t)
 	cfg := stubConfig(t)
 	t.Setenv("VOESX_API_KEY", "stale-env")
-	t.Setenv("VIDARA_KEY", "stale-vidara")
+	t.Setenv("DROPLOAD_KEY", "stale-dropload")
 
 	pre := &Set{
 		VoeSX:  []Cred{{Key: "dead-key"}, {Key: "quota-key"}, {Key: "healthy-key"}, {Key: "unknown-key"}},
-		Vidara: []Cred{{Key: "only-and-dead"}},
+		Dropload: []Cred{{Key: "only-and-dead"}},
 	}
 	preData, _ := json.Marshal(pre)
 	blobs[keysKey] = &preData
@@ -817,7 +817,7 @@ func TestReapDeadRemovesOnlyDeadKeys(t *testing.T) {
 	recordStatus("VoeSX", Fingerprint("quota-key"), StatusQuota, "storage quota full")
 	recordStatus("VoeSX", Fingerprint("healthy-key"), StatusHealthy, "")
 	recordStatus("VoeSX", Fingerprint("unknown-key"), StatusUnknown, "host down")
-	recordStatus("Vidara", Fingerprint("only-and-dead"), StatusDead, "authentication rejected")
+	recordStatus("Dropload", Fingerprint("only-and-dead"), StatusDead, "authentication rejected")
 
 	// Reaping must not touch the network: no probe may run.
 	probes := 0
@@ -845,8 +845,8 @@ func TestReapDeadRemovesOnlyDeadKeys(t *testing.T) {
 	if len(s.VoeSX) != 3 || s.VoeSX[0].Key != "quota-key" || s.VoeSX[1].Key != "healthy-key" || s.VoeSX[2].Key != "unknown-key" {
 		t.Fatalf("voesx after reap = %+v, want only quota/healthy/unknown", s.VoeSX)
 	}
-	if len(s.Vidara) != 0 {
-		t.Fatalf("vidara after reap = %+v, want empty (last key was dead)", s.Vidara)
+	if len(s.Dropload) != 0 {
+		t.Fatalf("dropload after reap = %+v, want empty (last key was dead)", s.Dropload)
 	}
 	if _, ok := statuses[statusKeyOf("VoeSX", Fingerprint("dead-key"))]; ok {
 		t.Error("reaped key's status row survived")
@@ -864,8 +864,8 @@ func TestReapDeadRemovesOnlyDeadKeys(t *testing.T) {
 		t.Errorf("env after reap = %q", got)
 	}
 	// Last key of the host was dead → Managed apply must dark the host.
-	if cfg.VidaraKey != "" || os.Getenv("VIDARA_KEY") != "" {
-		t.Errorf("dead-only host not darked: cfg=%q env=%q", cfg.VidaraKey, os.Getenv("VIDARA_KEY"))
+	if cfg.Upload18Key != "" || os.Getenv("DROPLOAD_KEY") != "" {
+		t.Errorf("dead-only host not darked: cfg=%q env=%q", cfg.Upload18Key, os.Getenv("DROPLOAD_KEY"))
 	}
 
 	// Idempotent: nothing dead left → no second save, no change.

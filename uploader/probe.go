@@ -89,35 +89,6 @@ func ProbeVoeSX(apiKey string) ProbeResult {
 	return ProbeResult{Message: msg}
 }
 
-// ProbeVidara checks one Vidara API key via GET /upload/server.
-func ProbeVidara(apiKey string) ProbeResult {
-	status, body, err := probeGet(fmt.Sprintf("%s/upload/server?api_key=%s", vidaraAPIBase, url.QueryEscape(apiKey)))
-	if err != nil {
-		return ProbeResult{Message: err.Error()}
-	}
-	if status == http.StatusUnauthorized || status == http.StatusForbidden {
-		return authVerdict(status, body)
-	}
-	if status != http.StatusOK {
-		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
-	}
-	var r vidaraServerResponse
-	if err := json.Unmarshal(body, &r); err != nil {
-		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
-	}
-	if r.Status == 200 && strings.TrimSpace(r.Result.UploadServer) != "" {
-		return ProbeResult{OK: true}
-	}
-	msg := strings.TrimSpace(r.Msg)
-	if msg == "" {
-		msg = snippet(body)
-	}
-	if isVidaraAuthError(fmt.Errorf("Vidara: %s", msg)) {
-		return ProbeResult{Rejected: true, Message: msg}
-	}
-	return ProbeResult{Message: msg}
-}
-
 // ProbeLuluStream checks one LuluStream API key via GET /upload/server — the
 // same call the upload flow makes to obtain an upload node.
 func ProbeLuluStream(apiKey string) ProbeResult {
@@ -276,13 +247,21 @@ func ProbeUpload18(apiKey string) ProbeResult {
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	var res upload18Response
+	unmarshaled := json.Unmarshal(body, &res) == nil
+
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		if unmarshaled && res.Msg != "" {
+			return ProbeResult{Rejected: true, Message: res.Msg}
+		}
 		return authVerdict(resp.StatusCode, body)
 	}
 
-	var res upload18Response
-	if err := json.Unmarshal(body, &res); err == nil {
-		if res.ErrorCode == "invalid_api_key" || res.ErrorCode == "missing_api_key" {
+	if unmarshaled {
+		if res.ErrorCode == "invalid_api_key" || res.ErrorCode == "missing_api_key" || res.ErrorCode == "api_access_required" {
+			return ProbeResult{Rejected: true, Message: res.Msg}
+		}
+		if isUpload18AuthError(fmt.Errorf("upload18: %s (code: %s)", res.Msg, res.ErrorCode)) {
 			return ProbeResult{Rejected: true, Message: res.Msg}
 		}
 		if res.ErrorCode == "invalid_upload" || res.Status == "success" {
@@ -321,50 +300,14 @@ func ProbeDropload(apiKey string) ProbeResult {
 	if msg == "" {
 		msg = snippet(body)
 	}
+	if r.Status == 403 || r.Status == 401 {
+		return ProbeResult{Rejected: true, Message: msg}
+	}
 	probeErr := fmt.Errorf("dropload: %s", msg)
 	if isDroploadQuotaError(probeErr) {
 		return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
 	}
 	if isDroploadAuthError(probeErr) {
-		return ProbeResult{Rejected: true, Message: msg}
-	}
-	return ProbeResult{Message: msg}
-}
-
-// ProbeVidero checks one Videro API key via GET /account/info.
-func ProbeVidero(apiKey string) ProbeResult {
-	if strings.TrimSpace(apiKey) == "" {
-		return ProbeResult{Rejected: true, Message: "empty API key"}
-	}
-	status, body, err := probeGet(videroAPIBase + "/account/info?key=" + url.QueryEscape(apiKey))
-	if err != nil {
-		return ProbeResult{Message: err.Error()}
-	}
-	if status == http.StatusUnauthorized || status == http.StatusForbidden {
-		return authVerdict(status, body)
-	}
-	if status != http.StatusOK {
-		return ProbeResult{Message: fmt.Sprintf("HTTP %d: %s", status, snippet(body))}
-	}
-	var r struct {
-		Status int    `json:"status"`
-		Msg    string `json:"msg"`
-	}
-	if err := json.Unmarshal(body, &r); err != nil {
-		return ProbeResult{Message: fmt.Sprintf("decode: %v", err)}
-	}
-	if r.Status == 200 {
-		return ProbeResult{OK: true, Message: "account verified"}
-	}
-	msg := strings.TrimSpace(r.Msg)
-	if msg == "" {
-		msg = snippet(body)
-	}
-	probeErr := fmt.Errorf("videro: %s", msg)
-	if isVideroQuotaError(probeErr) {
-		return ProbeResult{Quota: true, Message: "storage quota full: " + msg}
-	}
-	if isVideroAuthError(probeErr) {
 		return ProbeResult{Rejected: true, Message: msg}
 	}
 	return ProbeResult{Message: msg}
@@ -398,6 +341,9 @@ func ProbeFileHost(apiKey string) ProbeResult {
 	msg := strings.TrimSpace(r.Msg)
 	if msg == "" {
 		msg = snippet(body)
+	}
+	if r.Status == 403 || r.Status == 401 {
+		return ProbeResult{Rejected: true, Message: msg}
 	}
 	probeErr := fmt.Errorf("filehost: %s", msg)
 	if isFileHostQuotaError(probeErr) {

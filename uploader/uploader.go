@@ -108,12 +108,10 @@ type MultiHostUploader struct {
 	voesx         *VoeSXUploader
 	streamtape    *StreamtapeUploader
 	mixdrop       *MixdropUploader
-	vidara        *VidaraUploader
 	lulustream    *LuluStreamUploader
 	doodstream    *DoodStreamUploader
 	upload18      *Upload18Uploader
 	dropload      *DroploadUploader
-	videro        *VideroUploader
 	filehost      *FileHostUploader
 	anonmp4       *AnonMP4Uploader
 	log           Logger
@@ -466,9 +464,6 @@ func (m *MultiHostUploader) initHosts() {
 		if m.mixdrop != nil && m.mixdrop.email != "" && m.mixdrop.token != "" && !isGloballyDisabled("Mixdrop") {
 			m.hosts["Mixdrop"] = m.mixdrop.UploadWithProgress
 		}
-		if m.vidara != nil && m.vidara.keys.count() > 0 && !isGloballyDisabled("Vidara") {
-			m.hosts["Vidara"] = m.vidara.UploadWithProgress
-		}
 		if m.lulustream != nil && m.lulustream.keys.count() > 0 && !isGloballyDisabled("LuluStream") {
 			m.hosts["LuluStream"] = m.lulustream.UploadWithProgress
 		}
@@ -481,9 +476,6 @@ func (m *MultiHostUploader) initHosts() {
 		if m.dropload != nil && m.dropload.keys.count() > 0 && !isGloballyDisabled("Dropload") {
 			m.hosts["Dropload"] = m.dropload.UploadWithProgress
 		}
-		if m.videro != nil && m.videro.keys.count() > 0 && !isGloballyDisabled("Videro") {
-			m.hosts["Videro"] = m.videro.UploadWithProgress
-		}
 		if m.filehost != nil && m.filehost.keys.count() > 0 && !isGloballyDisabled("FileHost") {
 			m.hosts["FileHost"] = m.filehost.UploadWithProgress
 		}
@@ -495,7 +487,7 @@ func (m *MultiHostUploader) initHosts() {
 }
 
 // NewMultiHostUploader creates a new multi-host uploader
-func NewMultiHostUploader(voeSXAPIKey, streamtapeLogin, streamtapeKey, mixdropEmail, mixdropToken, vidaraKey, luluStreamKey, doodStreamKey, upload18Key, droploadKey, videroKey, fileHostKey string, log Logger) *MultiHostUploader {
+func NewMultiHostUploader(voeSXAPIKey, streamtapeLogin, streamtapeKey, mixdropEmail, mixdropToken, luluStreamKey, doodStreamKey, upload18Key, droploadKey, fileHostKey string, log Logger) *MultiHostUploader {
 	if log == nil {
 		log = &nilLogger{}
 	}
@@ -504,12 +496,10 @@ func NewMultiHostUploader(voeSXAPIKey, streamtapeLogin, streamtapeKey, mixdropEm
 		voesx:      NewVoeSXUploader(voeSXAPIKey),
 		streamtape: NewStreamtapeUploader(streamtapeLogin, streamtapeKey),
 		mixdrop:    NewMixdropUploader(mixdropEmail, mixdropToken),
-		vidara:     NewVidaraUploader(vidaraKey),
 		lulustream: NewLuluStreamUploader(luluStreamKey),
 		doodstream: NewDoodStreamUploader(doodStreamKey),
 		upload18:   NewUpload18Uploader(upload18Key),
 		dropload:   NewDroploadUploader(droploadKey),
-		videro:     NewVideroUploader(videroKey),
 		filehost:   NewFileHostUploader(fileHostKey),
 		anonmp4:    NewAnonMP4Uploader(),
 		log:        log,
@@ -597,7 +587,10 @@ func isUploadAuthError(err error) bool {
 		strings.Contains(msg, "streamtape rejected our credentials") ||
 		strings.Contains(msg, "rejected our credentials") ||
 		strings.Contains(msg, "invalid login") ||
-		strings.Contains(msg, "login failed")
+		strings.Contains(msg, "login failed") ||
+		strings.Contains(msg, "wrong auth") ||
+		strings.Contains(msg, "key rejected") ||
+		strings.Contains(msg, "api_access_required")
 }
 
 // keysExhaustedCooldown is how long a host is skipped once EVERY configured key

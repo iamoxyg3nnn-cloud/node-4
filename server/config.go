@@ -28,12 +28,10 @@ type persistedSettings struct {
 	StreamtapeKey   string `json:"streamtape_key,omitempty"`
 	MixdropEmail    string `json:"mixdrop_email,omitempty"`
 	MixdropToken    string `json:"mixdrop_token,omitempty"`
-	VidaraKey       string `json:"vidara_key,omitempty"`
 	LuluStreamKey   string `json:"lulustream_key,omitempty"`
 	DoodStreamKey   string `json:"doodstream_key,omitempty"`
 	Upload18Key     string `json:"upload18_key,omitempty"`
 	DroploadKey     string `json:"dropload_key,omitempty"`
-	VideroKey       string `json:"videro_key,omitempty"`
 	FileHostKey     string `json:"filehost_key,omitempty"`
 	StripchatPDKey  string `json:"stripchat_pdkey,omitempty"`
 	AffiliateWM     string `json:"affiliate_wm,omitempty"`
@@ -63,12 +61,10 @@ func SaveSettings() error {
 		StreamtapeKey:   validPersistedValue(Config.StreamtapeKey),
 		MixdropEmail:    validPersistedValue(Config.MixdropEmail),
 		MixdropToken:    validPersistedValue(Config.MixdropToken),
-		VidaraKey:       validPersistedValue(Config.VidaraKey),
 		LuluStreamKey:   validPersistedValue(Config.LuluStreamKey),
 		DoodStreamKey:   validPersistedValue(Config.DoodStreamKey),
 		Upload18Key:     validPersistedValue(Config.Upload18Key),
 		DroploadKey:     validPersistedValue(Config.DroploadKey),
-		VideroKey:       validPersistedValue(Config.VideroKey),
 		FileHostKey:     validPersistedValue(Config.FileHostKey),
 		StripchatPDKey:  validPersistedValue(Config.StripchatPDKey),
 		AffiliateWM:     validPersistedValue(Config.AffiliateWM),
@@ -117,12 +113,10 @@ func LoadSettings() error {
 		Config.StreamtapeKey = applyUploadCredential(Config.StreamtapeKey, s.StreamtapeKey, "streamtape_key")
 		Config.MixdropEmail = applyUploadCredential(Config.MixdropEmail, s.MixdropEmail, "mixdrop_email")
 		Config.MixdropToken = applyUploadCredential(Config.MixdropToken, s.MixdropToken, "mixdrop_token")
-		Config.VidaraKey = applyUploadCredential(Config.VidaraKey, s.VidaraKey, "vidara_key")
 		Config.LuluStreamKey = applyUploadCredential(Config.LuluStreamKey, s.LuluStreamKey, "lulustream_key")
 		Config.DoodStreamKey = applyUploadCredential(Config.DoodStreamKey, s.DoodStreamKey, "doodstream_key")
 		Config.Upload18Key = applyUploadCredential(Config.Upload18Key, s.Upload18Key, "upload18_key")
 		Config.DroploadKey = applyUploadCredential(Config.DroploadKey, s.DroploadKey, "dropload_key")
-		Config.VideroKey = applyUploadCredential(Config.VideroKey, s.VideroKey, "videro_key")
 		Config.FileHostKey = applyUploadCredential(Config.FileHostKey, s.FileHostKey, "filehost_key")
 		if v := validPersistedValue(s.StripchatPDKey); v != "" {
 			Config.StripchatPDKey = v
@@ -160,12 +154,10 @@ func LoadSettings() error {
 		s.StreamtapeKey = ""
 		s.MixdropEmail = ""
 		s.MixdropToken = ""
-		s.VidaraKey = ""
 		s.LuluStreamKey = ""
 		s.DoodStreamKey = ""
 		s.Upload18Key = ""
 		s.DroploadKey = ""
-		s.VideroKey = ""
 		s.FileHostKey = ""
 		s.StripchatPDKey = ""
 		s.AffiliateWM = ""
@@ -377,19 +369,17 @@ func ApplyCentralSessionDuration() {
 }
 
 // UpdateUploaderCredentials updates upload service credentials and protects concurrent access with a mutex.
-func UpdateUploaderCredentials(voeSXAPIKey, streamtapeLogin, streamtapeKey, mixdropEmail, mixdropToken, vidaraKey, luluStreamKey, doodStreamKey, upload18Key, droploadKey, videroKey, fileHostKey string) {
+func UpdateUploaderCredentials(voeSXAPIKey, streamtapeLogin, streamtapeKey, mixdropEmail, mixdropToken, luluStreamKey, doodStreamKey, upload18Key, droploadKey, fileHostKey string) {
 	// Ignore placeholder dash values so the web UI can't wipe real .env keys.
 	voeSXAPIKey = validPersistedValue(voeSXAPIKey)
 	streamtapeLogin = validPersistedValue(streamtapeLogin)
 	streamtapeKey = validPersistedValue(streamtapeKey)
 	mixdropEmail = validPersistedValue(mixdropEmail)
 	mixdropToken = validPersistedValue(mixdropToken)
-	vidaraKey = validPersistedValue(vidaraKey)
 	luluStreamKey = validPersistedValue(luluStreamKey)
 	doodStreamKey = validPersistedValue(doodStreamKey)
 	upload18Key = validPersistedValue(upload18Key)
 	droploadKey = validPersistedValue(droploadKey)
-	videroKey = validPersistedValue(videroKey)
 	fileHostKey = validPersistedValue(fileHostKey)
 
 	ConfigMu.Lock()
@@ -408,9 +398,6 @@ func UpdateUploaderCredentials(voeSXAPIKey, streamtapeLogin, streamtapeKey, mixd
 	if mixdropToken != "" {
 		Config.MixdropToken = mixdropToken
 	}
-	if vidaraKey != "" {
-		Config.VidaraKey = vidaraKey
-	}
 	if luluStreamKey != "" {
 		Config.LuluStreamKey = luluStreamKey
 	}
@@ -422,9 +409,6 @@ func UpdateUploaderCredentials(voeSXAPIKey, streamtapeLogin, streamtapeKey, mixd
 	}
 	if droploadKey != "" {
 		Config.DroploadKey = droploadKey
-	}
-	if videroKey != "" {
-		Config.VideroKey = videroKey
 	}
 	if fileHostKey != "" {
 		Config.FileHostKey = fileHostKey

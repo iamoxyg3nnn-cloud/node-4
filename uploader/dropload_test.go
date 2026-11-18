@@ -110,3 +110,83 @@ func TestDroploadUploadSuccess(t *testing.T) {
 		t.Errorf("got link %q, want %q", link, want)
 	}
 }
+
+func TestDroploadKeyRotationOnWrongAuth(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/upload/server":
+			key := r.URL.Query().Get("key")
+			w.Header().Set("Content-Type", "application/json")
+			if key == "bad-key" {
+				// Dropload's actual upstream error response for invalid keys
+				json.NewEncoder(w).Encode(map[string]any{
+					"status":      403,
+					"msg":         "Wrong auth",
+					"server_time": "2026-11-18 07:00:00",
+				})
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": 200,
+				"msg":    "OK",
+				"result": "http://" + r.Host + "/upload/target",
+			})
+		case "/upload/target":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": 200,
+				"msg":    "OK",
+				"files": []map[string]string{
+					{
+						"filecode": "rotated1234",
+						"filename": "test.mp4",
+						"status":   "OK",
+					},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	oldBase := droploadAPIBase
+	droploadAPIBase = ts.URL
+	defer func() { droploadAPIBase = oldBase }()
+
+	tmpDir := t.TempDir()
+	dummyVideo := filepath.Join(tmpDir, "test.mp4")
+	os.WriteFile(dummyVideo, []byte("fake video content"), 0o644)
+
+	u := NewDroploadUploader("bad-key,good-key")
+	u.client = ts.Client()
+
+	link, err := u.Upload(dummyVideo)
+	if err != nil {
+		t.Fatalf("expected successful rotation on 'Wrong auth', got: %v", err)
+	}
+	want := droploadViewBase + "/rotated1234"
+	if link != want {
+		t.Errorf("got %q, want %q", link, want)
+	}
+}
+
+func TestProbeDroploadWrongAuth(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"status": 403,
+			"msg":    "Wrong auth",
+		})
+	}))
+	defer ts.Close()
+
+	oldBase := droploadAPIBase
+	droploadAPIBase = ts.URL
+	defer func() { droploadAPIBase = oldBase }()
+
+	res := ProbeDropload("bad-key")
+	if !res.Rejected {
+		t.Errorf("expected res.Rejected = true for 'Wrong auth', got false (Message: %q)", res.Message)
+	}
+}

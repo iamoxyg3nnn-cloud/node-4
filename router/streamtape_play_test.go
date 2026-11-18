@@ -68,8 +68,8 @@ func TestUpload18EmbedURL(t *testing.T) {
 	cases := []struct {
 		host, link, want string
 	}{
-		{"Upload18", "https://upload18.org/play/index/cd90ffd5ba95", "https://upload18.org/play/index/cd90ffd5ba95"},
-		{"upload18", "https://upload18.org/play/index/cd90ffd5ba95", "https://upload18.org/play/index/cd90ffd5ba95"},
+		{"Upload18", "https://upload18.to/play/index/cd90ffd5ba95", "https://upload18.to/play/index/cd90ffd5ba95"},
+		{"upload18", "https://upload18.to/play/index/cd90ffd5ba95", "https://upload18.to/play/index/cd90ffd5ba95"},
 		{"Upload18", "", ""},
 	}
 	for _, cse := range cases {
@@ -90,25 +90,6 @@ func TestDroploadEmbedURL(t *testing.T) {
 		{"Dropload", "https://dropload.co/e/rz91qlhqpp74", "https://dropload.co/e/rz91qlhqpp74"},
 		{"dropload", "https://dr0pstream.com/rz91qlhqpp74", "https://dropload.co/e/rz91qlhqpp74"},
 		{"Dropload", "", ""},
-	}
-	for _, cse := range cases {
-		if got := embedURLForHostLink(cse.host, cse.link); got != cse.want {
-			t.Errorf("embedURLForHostLink(%q,%q) = %q, want %q", cse.host, cse.link, got, cse.want)
-		}
-		if got := videoURLForHostLink(cse.host, cse.link); got != cse.want {
-			t.Errorf("videoURLForHostLink(%q,%q) = %q, want %q", cse.host, cse.link, got, cse.want)
-		}
-	}
-}
-
-func TestVideroEmbedURL(t *testing.T) {
-	cases := []struct {
-		host, link, want string
-	}{
-		{"Videro", "https://videro.my/d/QUyserM28kXJ", "https://videro.my/e/QUyserM28kXJ"},
-		{"Videro", "https://videro.my/e/QUyserM28kXJ", "https://videro.my/e/QUyserM28kXJ"},
-		{"videro", "https://videro.my/QUyserM28kXJ", "https://videro.my/e/QUyserM28kXJ"},
-		{"Videro", "", ""},
 	}
 	for _, cse := range cases {
 		if got := embedURLForHostLink(cse.host, cse.link); got != cse.want {

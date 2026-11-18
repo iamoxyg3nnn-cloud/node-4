@@ -103,3 +103,68 @@ func TestFileHostUploadSuccess(t *testing.T) {
 		t.Errorf("got link %q, want %q", link, want)
 	}
 }
+
+func TestFileHostCloudflareSizeLimitGuard(t *testing.T) {
+	tmpDir := t.TempDir()
+	dummyVideo := filepath.Join(tmpDir, "huge.mp4")
+	f, err := os.Create(dummyVideo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Truncate to 105MB without writing bytes to disk
+	if err := f.Truncate(105 * 1024 * 1024); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+
+	u := NewFileHostUploader("test-key")
+	_, err = u.Upload(dummyVideo)
+	if err == nil {
+		t.Fatal("expected size guard error for 105MB file, got nil")
+	}
+	if !isFileHostSizeLimitError(err) {
+		t.Errorf("expected isFileHostSizeLimitError to match %v", err)
+	}
+}
+
+func TestFileHostNonRetryable413(t *testing.T) {
+	var targetCalls int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/upload/server":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": 200,
+				"msg":    "OK",
+				"result": "http://" + r.Host + "/upload/target",
+			})
+		case "/upload/target":
+			targetCalls++
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			w.Write([]byte("<html><title>413 Request Entity Too Large</title></html>"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	oldBase := fileHostAPIBase
+	fileHostAPIBase = ts.URL
+	defer func() { fileHostAPIBase = oldBase }()
+
+	tmpDir := t.TempDir()
+	dummyVideo := filepath.Join(tmpDir, "test.mp4")
+	os.WriteFile(dummyVideo, []byte("fake video"), 0o644)
+
+	u := NewFileHostUploader("test-key")
+	u.client = ts.Client()
+
+	_, err := u.Upload(dummyVideo)
+	if err == nil {
+		t.Fatal("expected 413 error, got nil")
+	}
+	if targetCalls != 1 {
+		t.Errorf("expected exactly 1 call before failing fast on 413, got %d calls", targetCalls)
+	}
+}

@@ -17,7 +17,7 @@ func TestIsUploadAuthError(t *testing.T) {
 	}{
 		{errors.New("get upload URL: API error 403: Authentication failed"), true},
 		{errors.New("streamtape: could not authenticate user. The key pair may be invalid or your account may be locked"), true},
-		{errors.New("vidara: invalid api key"), true},
+		{errors.New("dropload: invalid api key"), true},
 		{errors.New("imgbb: IMGBB_API_KEY not set"), false}, // not an auth REJECTION; initHosts already handles unconfigured hosts
 		{errors.New("imgpile: rate limited (HTTP 429)"), false},
 		{errors.New("dial tcp 1.2.3.4:443: connect: connection refused"), false},

@@ -16,6 +16,7 @@ func TestUpload18CodeExtraction(t *testing.T) {
 	}{
 		{"cd90ffd5ba95", "cd90ffd5ba95"},
 		{"https://upload18.org/play/index/cd90ffd5ba95", "cd90ffd5ba95"},
+		{"https://upload18.to/play/index/cd90ffd5ba95", "cd90ffd5ba95"},
 		{"https://upload18.org/play/index/cd90ffd5ba95/", "cd90ffd5ba95"},
 		{"https://upload18.org/play/index/cd90ffd5ba95?autoplay=1", "cd90ffd5ba95"},
 		{"https://upload18.org/play/index/cd90ffd5ba95#t=10", "cd90ffd5ba95"},
@@ -99,7 +100,7 @@ func TestUpload18UploadSuccess(t *testing.T) {
 		t.Fatalf("unexpected upload error: %v", err)
 	}
 
-	wantLink := "https://upload18.org/play/index/cd90ffd5ba95"
+	wantLink := upload18ViewBase + "/play/index/cd90ffd5ba95"
 	if link != wantLink {
 		t.Errorf("got link %q, want %q", link, wantLink)
 	}
@@ -141,7 +142,74 @@ func TestUpload18KeyRotationOnAuthFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected successful rotation, got err: %v", err)
 	}
-	if link != "https://upload18.org/play/index/rotated12345" {
-		t.Errorf("got %q", link)
+	wantLink := upload18ViewBase + "/play/index/rotated12345"
+	if link != wantLink {
+		t.Errorf("got %q, want %q", link, wantLink)
+	}
+}
+
+func TestUpload18KeyRotationOnApiAccessRequired(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.ParseMultipartForm(10 << 20)
+		key := r.FormValue("api_key")
+		if key == "unverified-key" {
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(upload18Response{
+				Status:    "error",
+				Msg:       "API access for this account needs approval.",
+				ErrorCode: "api_access_required",
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(upload18Response{
+			Status: "success",
+			Msg:    "Video upload complete",
+			Vid:    "approved12345",
+		})
+	}))
+	defer ts.Close()
+
+	oldBase := upload18APIBase
+	upload18APIBase = ts.URL
+	defer func() { upload18APIBase = oldBase }()
+
+	tmpDir := t.TempDir()
+	dummyVideo := filepath.Join(tmpDir, "test.mp4")
+	os.WriteFile(dummyVideo, []byte("fake video"), 0o644)
+
+	u := NewUpload18Uploader("unverified-key,good-key")
+	u.client = ts.Client()
+
+	link, err := u.Upload(dummyVideo)
+	if err != nil {
+		t.Fatalf("expected successful rotation on api_access_required, got err: %v", err)
+	}
+	wantLink := upload18ViewBase + "/play/index/approved12345"
+	if link != wantLink {
+		t.Errorf("got %q, want %q", link, wantLink)
+	}
+}
+
+func TestUpload18CloudflareSizeLimitGuard(t *testing.T) {
+	tmpDir := t.TempDir()
+	dummyVideo := filepath.Join(tmpDir, "huge.mp4")
+	f, err := os.Create(dummyVideo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Truncate to 105MB without writing bytes to disk
+	if err := f.Truncate(105 * 1024 * 1024); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+
+	u := NewUpload18Uploader("test-key")
+	_, err = u.Upload(dummyVideo)
+	if err == nil {
+		t.Fatal("expected size guard error for 105MB file, got nil")
+	}
+	if !isUpload18NonRetryable(err) {
+		t.Errorf("expected isUpload18NonRetryable to match %v", err)
 	}
 }

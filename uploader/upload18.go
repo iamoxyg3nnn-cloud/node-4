@@ -14,18 +14,18 @@ import (
 )
 
 // upload18APIBase is a var so tests can stub it.
-var upload18APIBase = "https://upload18.org/api"
+var upload18APIBase = "https://upload18.to/api"
 
 // upload18CodeRe is an allowlist for plausible Upload18 video codes (alphanumeric).
 var upload18CodeRe = regexp.MustCompile(`^[A-Za-z0-9_-]{4,}$`)
 
 // upload18ViewBase is the public site base used to build play and embed links.
-var upload18ViewBase = "https://upload18.org"
+var upload18ViewBase = "https://upload18.to"
 
 // defaultUpload18CID is the default Category ID: 15 (Videos).
 const defaultUpload18CID = 15
 
-// Upload18Uploader handles uploading video files to upload18.org.
+// Upload18Uploader handles uploading video files to upload18.to (and upload18.org).
 type Upload18Uploader struct {
 	keys   *keyRing
 	client *http.Client
@@ -38,6 +38,13 @@ type Upload18Uploader struct {
 func NewUpload18Uploader(apiKey string) *Upload18Uploader {
 	ring := buildRingFromEnv("UPLOAD18_KEY", apiKey)
 	ring.host = "Upload18"
+
+	if envBase := os.Getenv("UPLOAD18_API_BASE"); envBase != "" {
+		upload18APIBase = strings.TrimRight(strings.TrimSpace(envBase), "/")
+	}
+	if envView := os.Getenv("UPLOAD18_VIEW_BASE"); envView != "" {
+		upload18ViewBase = strings.TrimRight(strings.TrimSpace(envView), "/")
+	}
 
 	cid := defaultUpload18CID
 	if envCID := os.Getenv("UPLOAD18_CID"); envCID != "" {
@@ -81,6 +88,13 @@ func (u *Upload18Uploader) Upload(filePath string) (string, error) {
 func (u *Upload18Uploader) UploadWithProgress(filePath string, progress ProgressFunc) (string, error) {
 	if u.keys.count() == 0 {
 		return "", fmt.Errorf("Upload18 API key not configured")
+	}
+
+	// Upload18 is fronted by Cloudflare proxy which enforces a strict 100MB
+	// request body limit. Pre-check file size to fail fast and avoid streaming
+	// multi-hundred-megabyte files that Cloudflare will drop with HTTP 413.
+	if fi, err := os.Stat(filePath); err == nil && fi.Size() >= 100*1024*1024 {
+		return "", fmt.Errorf("upload18: file size (%d bytes) exceeds host Cloudflare 100MB limit", fi.Size())
 	}
 
 	release, ok := acquireHostSem("Upload18")
@@ -129,6 +143,9 @@ func (u *Upload18Uploader) UploadWithProgress(filePath string, progress Progress
 					lastErr = nil
 					bodyFullySent = false
 					break
+				}
+				if isUpload18NonRetryable(err) {
+					return "", lastErr
 				}
 				if bodyFullySent {
 					return "", lastErr
@@ -194,6 +211,13 @@ func (u *Upload18Uploader) uploadFile(filePath, apiKey string, progress Progress
 		return "", fmt.Errorf("read response: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusRequestEntityTooLarge {
+		return "", fmt.Errorf("Upload18: upload failed (HTTP 413): file exceeds Cloudflare 100MB limit: %s", snippet(respBytes))
+	}
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		return "", fmt.Errorf("Upload18: upload failed (HTTP 405): method not allowed on %s: %s", uploadURL, snippet(respBytes))
+	}
+
 	var res upload18Response
 	if err := json.Unmarshal(respBytes, &res); err != nil {
 		return "", fmt.Errorf("unmarshal response (HTTP %d): %s", resp.StatusCode, snippet(respBytes))
@@ -215,7 +239,7 @@ func (u *Upload18Uploader) uploadFile(filePath, apiKey string, progress Progress
 }
 
 // Upload18Code extracts an Upload18 video code from a plain code, a play link
-// ("https://upload18.org/play/index/CODE"), or an embed link.
+// ("https://upload18.to/play/index/CODE"), or an embed link.
 func Upload18Code(v string) string {
 	v = strings.TrimSpace(v)
 	v = strings.TrimRight(v, "/")
@@ -234,14 +258,40 @@ func Upload18Code(v string) string {
 	return v
 }
 
+func isUpload18NonRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "405") ||
+		strings.Contains(msg, "method_not_allowed") ||
+		strings.Contains(msg, "method not allowed") ||
+		strings.Contains(msg, "method is not allowed") ||
+		strings.Contains(msg, "413") ||
+		strings.Contains(msg, "payload too large") ||
+		strings.Contains(msg, "entity too large") ||
+		strings.Contains(msg, "cloudflare 100mb limit")
+}
+
 func isUpload18AuthError(err error) bool {
 	if err == nil {
 		return false
 	}
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "invalid_api_key") ||
+		strings.Contains(msg, "invalid api key") ||
 		strings.Contains(msg, "unauthorized") ||
-		strings.Contains(msg, "missing_api_key")
+		strings.Contains(msg, "missing_api_key") ||
+		strings.Contains(msg, "api_access_required") ||
+		strings.Contains(msg, "needs approval") ||
+		strings.Contains(msg, "verify your website") ||
+		strings.Contains(msg, "wrong auth") ||
+		strings.Contains(msg, "wrong_auth") ||
+		strings.Contains(msg, "status 401") ||
+		strings.Contains(msg, "status 403") ||
+		strings.Contains(msg, "http 401") ||
+		strings.Contains(msg, "http 403") ||
+		strings.Contains(msg, "forbidden")
 }
 
 func isUpload18QuotaError(err error) bool {
@@ -252,5 +302,8 @@ func isUpload18QuotaError(err error) bool {
 	return strings.Contains(msg, "quota") ||
 		strings.Contains(msg, "disk full") ||
 		strings.Contains(msg, "limit exceeded") ||
-		strings.Contains(msg, "storage full")
+		strings.Contains(msg, "storage full") ||
+		strings.Contains(msg, "413") ||
+		strings.Contains(msg, "payload too large") ||
+		strings.Contains(msg, "entity too large")
 }

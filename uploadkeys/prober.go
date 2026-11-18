@@ -238,7 +238,6 @@ func seedFromConfig() {
 	}
 	seed := &Set{
 		VoeSX:      csvCreds(server.Config.VoeSXAPIKey),
-		Vidara:     csvCreds(server.Config.VidaraKey),
 		LuluStream: csvCreds(server.Config.LuluStreamKey),
 		DoodStream: csvCreds(server.Config.DoodStreamKey),
 		Upload18:   csvCreds(server.Config.Upload18Key),
@@ -391,12 +390,10 @@ func claimProbeLease() bool {
 var probeFuncs = map[string]func(Cred) uploader.ProbeResult{
 	"VoeSX":      func(c Cred) uploader.ProbeResult { return uploader.VerifyVoeSX(c.Key) },
 	"Streamtape": func(c Cred) uploader.ProbeResult { return uploader.VerifyStreamtape(c.Login, c.Key) },
-	"Vidara":     func(c Cred) uploader.ProbeResult { return uploader.VerifyVidara(c.Key) },
 	"LuluStream": func(c Cred) uploader.ProbeResult { return uploader.VerifyLuluStream(c.Key) },
 	"DoodStream": func(c Cred) uploader.ProbeResult { return uploader.VerifyDoodStream(c.Key) },
 	"Upload18":   func(c Cred) uploader.ProbeResult { return uploader.VerifyUpload18(c.Key) },
 	"Dropload":   func(c Cred) uploader.ProbeResult { return uploader.VerifyDropload(c.Key) },
-	"Videro":     func(c Cred) uploader.ProbeResult { return uploader.VerifyVidero(c.Key) },
 	"FileHost":   func(c Cred) uploader.ProbeResult { return uploader.VerifyFileHost(c.Key) },
 }
 
