@@ -1,0 +1,17 @@
+name = "chuglii-scraper"
+main = "src/index.js"
+compatibility_date = "2025-01-15"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[vars]
+SUPABASE_URL = "https://supabase.chuglii.in"
+DEFAULT_PAGES_PER_RUN = "2"
+
+[triggers]
+# Runs every 4 hours automatically to scrape and ingest latest leaks
+crons = ["0 */4 * * *"]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
