@@ -82,9 +82,12 @@ func (u *CatboxUploader) Upload(filePath string) (string, error) {
 
 		lastErr = err
 
-		// If userhash was rejected by Catbox (HTTP 412), clear it so the next
-		// attempt uploads anonymously, preventing hard failures.
-		if u.userHash != "" && strings.Contains(err.Error(), "status 412") {
+		// If proxy was used and failed (e.g. Cloudflare Worker IP blocked with
+		// HTTP 412 "Invalid uploader" or 5xx), fall back to direct catbox.moe on subsequent attempts.
+		if u.proxyURL != "" && (strings.Contains(err.Error(), "status 412") || strings.Contains(err.Error(), "status 5")) {
+			u.proxyURL = ""
+		} else if u.userHash != "" && strings.Contains(err.Error(), "status 412") {
+			// If direct catbox also rejected with 412, fall back to anonymous upload.
 			u.userHash = ""
 		}
 
