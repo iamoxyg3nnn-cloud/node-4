@@ -9,8 +9,8 @@ SUPABASE_URL = "https://supabase.chuglii.in"
 DEFAULT_PAGES_PER_RUN = "2"
 
 [triggers]
-# Runs every 4 hours automatically to scrape and ingest latest leaks
-crons = ["0 */4 * * *"]
+# Runs every 15 minutes automatically to scrape and ingest every new video from the site
+crons = ["*/15 * * * *"]
 
 [observability]
 enabled = true

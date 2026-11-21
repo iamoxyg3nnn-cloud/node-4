@@ -52,7 +52,7 @@ export default {
 
         let result;
         if (category === "all") {
-          result = await syncAllCategories(env, pages);
+          result = await syncGlobalFeed(env, pages);
         } else {
           result = await syncCategory(env, category, pages);
         }
@@ -66,9 +66,13 @@ export default {
     }
   },
 
-  // Cloudflare Cron Trigger (Runs automatically according to wrangler.toml)
+  // Cloudflare Cron Trigger (Runs every 15 minutes automatically)
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(syncAllCategories(env, 2));
+    // Ingests every new video from the global latest feed + Pakistani category
+    ctx.waitUntil(Promise.all([
+      syncGlobalFeed(env, 2),
+      syncCategory(env, "pakistani", 1),
+    ]));
   },
 };
 
@@ -206,8 +210,12 @@ async function scrapePage(pageNum, category = null) {
     if (category && category !== "all" && !categories.includes(category)) {
       categories.push(category);
     }
-    if (categories.length === 0) {
-      categories.push("indian", "desi");
+    // All leaks are categorized under 'indian' on chuglii.in, plus their native categories
+    if (!categories.includes("indian")) {
+      categories.push("indian");
+    }
+    if (!categories.includes("desi")) {
+      categories.push("desi");
     }
 
     const tags = classes
@@ -290,6 +298,30 @@ async function syncCategory(env, category, maxPages = 2) {
   return {
     success: true,
     category,
+    pages_crawled: maxPages,
+    items_scraped: allItems.length,
+    upsert_result: upsertResult,
+  };
+}
+
+async function syncGlobalFeed(env, maxPages = 2) {
+  const allItems = [];
+  for (let p = 1; p <= maxPages; p++) {
+    try {
+      // Scrape global latest feed (every newly uploaded clip on the entire site)
+      const items = await scrapePage(p, null);
+      allItems.push(...items);
+    } catch {}
+  }
+
+  if (allItems.length === 0) {
+    return { success: false, feed: "global_latest", items_scraped: 0, message: "No items parsed" };
+  }
+
+  const upsertResult = await sendBatchToSupabase(env, allItems);
+  return {
+    success: true,
+    feed: "global_latest",
     pages_crawled: maxPages,
     items_scraped: allItems.length,
     upsert_result: upsertResult,
