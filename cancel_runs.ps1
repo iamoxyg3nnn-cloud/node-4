@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $false)]
-    [string]$Org = "vxillannnnnn-hub",
+    [string]$Org = "iamoxyg3nnn-cloud",
 
     [Parameter(Mandatory = $false)]
     [string]$Prefix = "node",
@@ -25,7 +25,7 @@ param(
 )
 
 if ([string]::IsNullOrWhiteSpace($Org)) {
-    $Org = "vxillannnnnn-hub"
+    $Org = "iamoxyg3nnn-cloud"
 }
 
 if ($null -ne $Nodes -and $Nodes.Count -gt 0) {
