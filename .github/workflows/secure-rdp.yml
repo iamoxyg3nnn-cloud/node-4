@@ -262,3 +262,21 @@ jobs:
             ${{ env.REPO_DIR }}\dvr-output.log
             ${{ env.REPO_DIR }}\dvr-err.log
           if-no-files-found: ignore
+
+      - name: Alert on Failure
+        if: failure() && !cancelled()
+        continue-on-error: true
+        shell: powershell
+        run: |
+          $hook = if ($env:DISCORD_WEBHOOK_URL) { $env:DISCORD_WEBHOOK_URL } else { $env:DISCORD_WEBHOOK }
+          if ($hook) {
+            $embed = @{
+              title = "🚨 $env:NODE_ID crashed during session"
+              color = 15158332
+              description = "Job failed on GitHub Actions.`nRepo: $env:GITHUB_REPOSITORY`nRun: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+              footer = @{ text = "secure-rdp" }
+              timestamp = [DateTime]::UtcNow.ToString("o")
+            }
+            $body = @{ embeds = @($embed) } | ConvertTo-Json -Depth 4
+            Invoke-RestMethod -Uri $hook -Method Post -ContentType 'application/json' -Body $body -ErrorAction SilentlyContinue
+          }

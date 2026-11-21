@@ -253,6 +253,8 @@ func seedFromConfig() {
 		LuluStream: csvCreds(server.Config.LuluStreamKey),
 		DoodStream: csvCreds(server.Config.DoodStreamKey),
 		Upload18:   csvCreds(server.Config.Upload18Key),
+		Dropload:   csvCreds(server.Config.DroploadKey),
+		FileHost:   csvCreds(server.Config.FileHostKey),
 	}
 	// Seed image/sprite/preview hosts from env (these have no Config fields,
 	// so read them straight from the environment).

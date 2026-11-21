@@ -345,9 +345,28 @@ async function evaluateRepo(config, headers) {
   });
   state.restarts = recentCompletions.length;
   if (recentCompletions.length >= throttleMax) {
-    state.reason = `Throttled (${recentCompletions.length} runs in 24h)`;
-    state.throttled = true;
-    return state;
+    let isNewCommit = false;
+    try {
+      const commitResp = await ghFetch(
+        `https://api.github.com/repos/${OWNER}/${repo}/commits/${branch}`,
+        headers
+      );
+      if (commitResp && commitResp.ok) {
+        const commitData = await commitResp.json();
+        if (commitData?.sha && latest.head_sha && commitData.sha !== latest.head_sha) {
+          isNewCommit = true;
+          console.log(`[${repo}] new commit on ${branch} (${commitData.sha.slice(0, 7)} vs ${latest.head_sha.slice(0, 7)}), bypassing throttle`);
+        }
+      }
+    } catch (e) {
+      console.warn(`[${repo}] commit check error: ${e.message}`);
+    }
+
+    if (!isNewCommit) {
+      state.reason = `Throttled (${recentCompletions.length} runs in 24h)`;
+      state.throttled = true;
+      return state;
+    }
   }
 
   // Needs restart
@@ -475,6 +494,16 @@ export default {
         const state = await evaluateRepo(config, headers);
         if (state.needsRestart) {
           await executeRestart(config, state, headers, env);
+        } else if (state.throttled) {
+          const now = Date.now();
+          if (now - (lastErrorAt[config.repo] || 0) >= ERROR_NOTIFY_INTERVAL_MS) {
+            lastErrorAt[config.repo] = now;
+            await sendDiscordError(
+              env,
+              config.repo,
+              `🚨 Fleet repo is DEAD & THROTTLED: ${state.reason}. Last run conclusion was ${state.lastConclusion || "unknown"}. Automatic restarts suspended until resolved.`
+            );
+          }
         }
       } catch (err) {
         console.error(`[${config.repo}] error: ${err.message}`);

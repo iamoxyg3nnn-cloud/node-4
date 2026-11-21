@@ -2,7 +2,6 @@ package manager
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"strings"
 	"sync"

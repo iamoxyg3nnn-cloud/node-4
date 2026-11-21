@@ -654,7 +654,7 @@ func TestAddReturnsProbeVerdict(t *testing.T) {
 		return uploader.ProbeResult{Quota: true, Message: "daily upload limit"}
 	}
 
-	v, err := Add("Upload18", Cred{Key: "drop-new"})
+	v, err := Add("Dropload", Cred{Key: "drop-new"})
 	if err != nil {
 		t.Fatalf("Add: %v", err)
 	}
