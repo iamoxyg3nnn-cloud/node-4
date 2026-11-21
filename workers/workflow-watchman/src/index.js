@@ -12,36 +12,13 @@
  *     (fast-polled EVERY minute so the handoff gap stays ~1-2 min)
  */
 
-const OWNER = "vxillannnnnn-hub";
+const OWNER = "iamoxyg3nnn-cloud";
 
 // ===== Per-repo configuration ================================================
 const REPO_CONFIGS = [
-  // Node repos — standard behaviour
-  { repo: "node-1",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-2",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-3",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-4",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-5",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-6",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-7",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-8",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-9",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-10",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-11",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-12",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-13",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-14",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-15",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-
-  // Supabase-Actions — 24/7 self-hosted Supabase. Sessions run ~5h05m then stop;
+  // chuglii-supabase — 24/7 self-hosted Supabase for Chuglii. Sessions run ~5h05m then stop;
   // restart the moment one completes so the stack is up around the clock.
-  // Short grace = fast handoff. The repo's own 6-hour schedule still runs as a
-  // no-cancel fallback (it queues behind the active session instead of killing it).
-  // fastPoll: true = checked on EVERY cron tick (1 min) so the dead gap is ~1-2 min.
-  // throttleMax 12: normal 24/7 chaining needs ~4-5 sessions/day; the headroom
-  // covers a rapid-fail loop (schedule + watchman double-triggering) without the
-  // watchman going silent for 24h.
-  { repo: "Supabase-Actions", workflow: "supabase-host.yml", branch: "master", graceMs: 60 * 1000, throttleMax: 12, fastPoll: true },
+  { repo: "chuglii-supabase", workflow: "supabase-host.yml", branch: "master", graceMs: 60 * 1000, throttleMax: 15, fastPoll: true },
 ];
 
 const THROTTLE_WINDOW = 24 * 60 * 60 * 1000; // 24 hours

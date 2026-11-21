@@ -45,6 +45,31 @@ export default {
         });
       }
 
+      // Generic Proxy for Datacenter-Bypassing Scraping
+      if (path === "/proxy") {
+        const targetUrl = url.searchParams.get("url");
+        if (!targetUrl) return jsonResponse({ error: "Missing url parameter" }, 400);
+
+        const resp = await fetch(targetUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+          redirect: "follow",
+        });
+
+        const body = await resp.text();
+        return new Response(body, {
+          status: resp.status,
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "X-Target-Status": String(resp.status),
+            ...CORS_HEADERS,
+          },
+        });
+      }
+
       // Sync Trigger
       if (path === "/sync") {
         const category = url.searchParams.get("category") || "all";

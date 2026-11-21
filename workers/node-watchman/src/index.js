@@ -15,37 +15,31 @@
  *     (fast-polled EVERY minute so the handoff gap stays ~1-2 min)
  */
 
-const OWNER = "vxillannnnnn-hub";
+const OWNER = "iamoxyg3nnn-cloud";
 
 // ===== Per-repo configuration ================================================
 const REPO_CONFIGS = [
-  // Node repos — standard behaviour
-  { repo: "node-1",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-2",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-3",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-4",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-5",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-6",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-7",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-8",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-9",   workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-10",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-11",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-12",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-13",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-14",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-  { repo: "node-15",  workflow: "secure-rdp.yml", branch: "main", graceMs: 20 * 60 * 1000, throttleMax: 8 },
-
-  // Supabase-Actions — 24/7 self-hosted Supabase.
+  // chuglii-supabase — 24/7 self-hosted Supabase for Chuglii.
   // Sessions run ~5h05m then exit cleanly without internal crons or self-chaining.
   // node-watchman is the primary intelligent autotrigger.
   // It checks every 1 min (fastPoll), automatically purges/cancels duplicate queued runs,
   // and starts the next session 30s after completion with ZERO queue delay.
   {
-    repo: "Supabase-Actions",
+    repo: "chuglii-supabase",
     workflow: "supabase-host.yml",
     branch: "master",
     graceMs: 30 * 1000,
+    maxRunDurationMs: 5.5 * 3600 * 1000,
+    throttleMax: 15,
+    fastPoll: true,
+  },
+
+  // chuglii-scraper — 24/7 Automated Multi-Site Video Scraper Fleet.
+  {
+    repo: "chuglii-scraper",
+    workflow: "scrapers-auto-sync.yml",
+    branch: "main",
+    graceMs: 60 * 1000,
     maxRunDurationMs: 5.5 * 3600 * 1000,
     throttleMax: 15,
     fastPoll: true,
