@@ -210,22 +210,23 @@ async function scrapePage(pageNum, category = null) {
     if (category && category !== "all" && !categories.includes(category)) {
       categories.push(category);
     }
-    // All scraped data from mmsvibex is categorized under parent category 'viral-mms'
+    // Parent category is always 'viral-mms'
     if (!categories.includes("viral-mms")) {
       categories.push("viral-mms");
-    }
-    if (!categories.includes("indian")) {
-      categories.push("indian");
-    }
-    if (!categories.includes("desi")) {
-      categories.push("desi");
     }
 
     const tags = classes
       .filter(c => c.startsWith("tag-"))
       .map(c => c.replace("tag-", ""));
-    if (tags.length === 0) {
-      extractTagsFromTitle(title).forEach(t => tags.push(t));
+
+    // Enrich tags with auto-detected keywords from title & category
+    const titleTags = extractTagsFromTitle(title);
+    titleTags.forEach(t => {
+      if (!tags.includes(t)) tags.push(t);
+    });
+
+    if (category && category !== "all" && !tags.includes(category)) {
+      tags.push(category);
     }
 
     const actors = classes
