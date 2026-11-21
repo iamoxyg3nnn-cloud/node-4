@@ -41,7 +41,7 @@ export default {
       // Categories
       if (path === "/categories") {
         return jsonResponse({
-          categories: ["all", "indian", "desi", "pakistani", "bangladesi"],
+          categories: ["viral-mms", "all", "indian", "desi", "pakistani", "bangladesi"],
         });
       }
 
@@ -210,7 +210,10 @@ async function scrapePage(pageNum, category = null) {
     if (category && category !== "all" && !categories.includes(category)) {
       categories.push(category);
     }
-    // All leaks are categorized under 'indian' on chuglii.in, plus their native categories
+    // All scraped data from mmsvibex is categorized under parent category 'viral-mms'
+    if (!categories.includes("viral-mms")) {
+      categories.push("viral-mms");
+    }
     if (!categories.includes("indian")) {
       categories.push("indian");
     }
